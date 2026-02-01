@@ -1,0 +1,85 @@
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(212, 175, 55, 0.4);
+}
+
+.imagePlaceholder {
+    width: 100%;
+    aspect-ratio: 16/10;
+    background: linear-gradient(45deg, #1a1a1a, #2a2a2a);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.2);
+    font-weight: 700;
+}
+
+.content {
+    padding: 1.5rem;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.05em;
+}
+
+.title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.description {
+    font-size: 0.9rem;
+    color: rgba(237, 237, 237, 0.6);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.pricing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+}
+
+.priceItem {
+    display: flex;
+    flex-direction: column;
+}
+
+.currency {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.amount {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.amountMain {
+    color: var(--primary);
+    font-size: 1.2rem;
+}
