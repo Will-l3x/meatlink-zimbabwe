@@ -60,21 +60,26 @@
     gap: 1.5rem;
 }
 
-.wallet {
+.authLinks {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.5rem 1rem;
-    border-radius: 50px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--foreground);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 1.5rem;
 }
 
-.walletValue {
-    color: var(--primary);
+.registerBtn {
+    background: var(--primary);
+    color: #000;
+    text-decoration: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.registerBtn:hover {
+    background: #e5bd3b;
+    transform: translateY(-2px);
 }
 
 .hamburger {

@@ -27,9 +27,9 @@ export default function Navbar() {
             </nav>
 
             <div className={styles.actions}>
-                <div className={styles.wallet}>
-                    <span>Wallet Balance:</span>
-                    <span className={styles.walletValue}>${walletBalance.toFixed(2)}</span>
+                <div className={styles.authLinks}>
+                    <Link href="/login" className={styles.link}>Log In</Link>
+                    <Link href="/register" className={styles.registerBtn}>Join</Link>
                 </div>
 
                 <button className={styles.hamburger} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>

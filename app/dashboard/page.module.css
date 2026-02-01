@@ -145,6 +145,15 @@
     font-weight: 800;
 }
 
+.emptyState {
+    padding: 3rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    color: rgba(255, 255, 255, 0.3);
+}
+
 @media (max-width: 900px) {
     .grid {
         grid-template-columns: 1fr;
