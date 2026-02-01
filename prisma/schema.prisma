@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SENDER
+  ADMIN
+  DRIVER
+}
+
+enum Frequency {
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+}
+
+enum TransactionType {
+  DEPOSIT
+  DEDUCTION
+  REFUND
+}
+
+enum DeliveryStatus {
+  PENDING
+  ON_ROUTE
+  DELIVERED
+  DELAYED
+}
+
+model User {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  email         String?        @unique
+  name          String
+  role          Role           @default(SENDER)
+  walletBalance Float          @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subscriptions Subscription[]
+  transactions  Transaction[]
+}
+
+model Recipient {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  whatsapp      String
+  address       String
+  suburb        String
+  createdAt     DateTime       @default(now())
+  
+  subscriptions Subscription[]
+  deliveries    Delivery[]
+}
+
+model Hamper {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String         @unique
+  description   String
+  priceUSD      Float
+  priceZAR      Float
+  priceGBP      Float
+  createdAt     DateTime       @default(now())
+  
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  senderId      String         @db.ObjectId
+  recipientId   String         @db.ObjectId
+  hamperId      String         @db.ObjectId
+  frequency     Frequency      @default(WEEKLY)
+  isActive      Boolean        @default(true)
+  nextDelivery  DateTime
+  createdAt     DateTime       @default(now())
+  
+  sender        User           @relation(fields: [senderId], references: [id])
+  recipient     Recipient      @relation(fields: [recipientId], references: [id])
+  hamper        Hamper         @relation(fields: [hamperId], references: [id])
+  deliveries    Delivery[]
+}
+
+model Transaction {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String          @db.ObjectId
+  amount        Float
+  type          TransactionType
+  description   String
+  reference     String?         // EFT Proof ref or Stripe Charge ID
+  createdAt     DateTime        @default(now())
+  
+  user          User            @relation(fields: [userId], references: [id])
+}
+
+model Delivery {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionId String          @db.ObjectId
+  recipientId    String          @db.ObjectId
+  status         DeliveryStatus  @default(PENDING)
+  scheduledDate  DateTime
+  deliveredAt    DateTime?
+  proofOfDelivery String?        // URL to image
+  createdAt      DateTime        @default(now())
+  
+  subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
+  recipient      Recipient       @relation(fields: [recipientId], references: [id])
+}
