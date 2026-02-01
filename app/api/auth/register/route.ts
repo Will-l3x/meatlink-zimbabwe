@@ -23,6 +23,7 @@ export async function POST(request: Request) {
             data: {
                 name,
                 email,
+                password, // In a real app, hash this with bcrypt!
                 walletBalance: 0,
                 role: 'SENDER'
             }

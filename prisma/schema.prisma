@@ -36,6 +36,7 @@ model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   email         String?        @unique
   name          String
+  password      String?        // Password for authentication
   role          Role           @default(SENDER)
   walletBalance Float          @default(0)
   createdAt     DateTime       @default(now())
