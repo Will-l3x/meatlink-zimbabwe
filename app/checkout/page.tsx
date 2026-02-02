@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 
@@ -14,15 +14,64 @@ const HAMPERS = {
 
 function CheckoutContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const packId = searchParams.get('pack') || 'gogo-pack';
     const pack = HAMPERS[packId as keyof typeof HAMPERS] || HAMPERS['gogo-pack'];
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        recipientName: '',
+        recipientWhatsApp: '',
+        recipientAddress: '',
+        recipientSuburb: '',
+        frequency: 'WEEKLY'
+    });
 
     const getPriceLabel = () => {
         if (currency === 'zar') return `R${pack.zar}`;
         if (currency === 'gbp') return `£${pack.gbp}`;
         return `$${pack.usd}`;
+    };
+
+    const handleConfirm = async () => {
+        const storedUser = localStorage.getItem('meatlink_user');
+        if (!storedUser) {
+            alert('Please log in or register to place an order.');
+            router.push('/login');
+            return;
+        }
+
+        const user = JSON.parse(storedUser);
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...formData,
+                    senderId: user.id,
+                    senderName: user.name,
+                    hamperId: packId,
+                    amount: pack[currency === 'usd' ? 'usd' : currency === 'zar' ? 'zar' : 'gbp'],
+                    currency: currency.toUpperCase()
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                // Simulate redirect to payment gateway
+                router.push(`/checkout/success?subId=${data.subscriptionId}`);
+            } else {
+                alert(data.error || 'Checkout failed.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred during checkout.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -38,15 +87,39 @@ function CheckoutContent() {
                         <h2>1. Recipient Details</h2>
                         <div className={styles.formGroup}>
                             <label>Recipient Name (Harare)</label>
-                            <input type="text" placeholder="e.g. Mrs. Moyo" />
+                            <input
+                                type="text"
+                                placeholder="e.g. Mrs. Moyo"
+                                value={formData.recipientName}
+                                onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label>Recipient WhatsApp Number</label>
-                            <input type="text" placeholder="+263 7..." />
+                            <input
+                                type="text"
+                                placeholder="+263 7..."
+                                value={formData.recipientWhatsApp}
+                                onChange={(e) => setFormData({ ...formData, recipientWhatsApp: e.target.value })}
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label>Delivery Address</label>
-                            <textarea rows={3} placeholder="House number, Street, Suburb (Harare)" />
+                            <textarea
+                                rows={3}
+                                placeholder="House number, Street, Suburb (Harare)"
+                                value={formData.recipientAddress}
+                                onChange={(e) => setFormData({ ...formData, recipientAddress: e.target.value })}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Suburb</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Mabelreign"
+                                value={formData.recipientSuburb}
+                                onChange={(e) => setFormData({ ...formData, recipientSuburb: e.target.value })}
+                            />
                         </div>
                     </div>
 
@@ -54,10 +127,13 @@ function CheckoutContent() {
                         <h2>2. Delivery Settings</h2>
                         <div className={styles.formGroup}>
                             <label>Frequency</label>
-                            <select defaultValue="weekly">
-                                <option value="weekly">Every Week (Recommended for power cuts)</option>
-                                <option value="bi-weekly">Every 2 Weeks</option>
-                                <option value="monthly">Every Month</option>
+                            <select
+                                value={formData.frequency}
+                                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                            >
+                                <option value="WEEKLY">Every Week (Recommended for power cuts)</option>
+                                <option value="BI_WEEKLY">Every 2 Weeks</option>
+                                <option value="MONTHLY">Every Month</option>
                             </select>
                         </div>
                     </div>
@@ -106,8 +182,8 @@ function CheckoutContent() {
                         <span>{getPriceLabel()}</span>
                     </div>
 
-                    <Button fullWidth style={{ marginTop: '2rem' }}>
-                        Confirm & Pay
+                    <Button fullWidth onClick={handleConfirm} style={{ marginTop: '2rem' }}>
+                        {loading ? 'Processing...' : 'Confirm & Pay'}
                     </Button>
 
                     <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: '1.4' }}>

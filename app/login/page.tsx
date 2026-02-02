@@ -15,6 +15,11 @@ export default function LoginPage() {
         setLoading(true);
         // Mock login logic
         setTimeout(() => {
+            localStorage.setItem('meatlink_user', JSON.stringify({
+                id: 'user_' + Math.random().toString(36).substr(2, 9),
+                name: 'Tafara M.',
+                email: 'tafara@example.com'
+            }));
             router.push('/dashboard');
             setLoading(false);
         }, 1000);

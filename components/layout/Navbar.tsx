@@ -1,16 +1,29 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [user, setUser] = useState<{ name: string } | null>(null);
 
-    // Mock wallet balance for now
-    const walletBalance = 120.00;
+    useEffect(() => {
+        // Check for user in localStorage to simulate session
+        const storedUser = localStorage.getItem('meatlink_user');
+        if (storedUser) {
+            setUser(JSON.parse(storedUser));
+        }
+    }, [pathname]);
+
+    const handleLogout = () => {
+        localStorage.removeItem('meatlink_user');
+        setUser(null);
+        router.push('/');
+    };
 
     const isActive = (path: string) => pathname === path ? styles.active : '';
 
@@ -27,33 +40,41 @@ export default function Navbar() {
             </nav>
 
             <div className={styles.actions}>
-                <div className={styles.authLinks}>
-                    <Link href="/login" className={styles.link}>Log In</Link>
-                    <Link href="/register" className={styles.registerBtn}>Join</Link>
-                </div>
+                {user ? (
+                    <div className={styles.authLinks}>
+                        <span className={styles.userName}>{user.name}</span>
+                        <button onClick={handleLogout} className={styles.link} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                            Log Out
+                        </button>
+                    </div>
+                ) : (
+                    <div className={styles.authLinks}>
+                        <Link href="/login" className={styles.link}>Log In</Link>
+                        <Link href="/register" className={styles.registerBtn}>Join</Link>
+                    </div>
+                )}
 
                 <button className={styles.hamburger} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                     ☰
                 </button>
             </div>
 
-            {/* Mobile Menu (simplified for now) */}
+            {/* Mobile Menu */}
             {isMobileMenuOpen && (
-                <div style={{
-                    position: 'absolute',
-                    top: '80px',
-                    left: 0,
-                    width: '100%',
-                    background: '#0a0a0a',
-                    padding: '1rem',
-                    borderBottom: '1px solid #333',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem'
-                }}>
+                <div className={styles.mobileNav}>
                     <Link href="/" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
                     <Link href="/shop" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Shop Meat</Link>
                     <Link href="/dashboard" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Dashboard</Link>
+                    {user ? (
+                        <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className={styles.link} style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0 }}>
+                            Log Out
+                        </button>
+                    ) : (
+                        <>
+                            <Link href="/login" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Log In</Link>
+                            <Link href="/register" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Join</Link>
+                        </>
+                    )}
                 </div>
             )}
         </header>

@@ -26,10 +26,17 @@ export default function RegisterPage() {
                 body: JSON.stringify(formData)
             });
 
+            const data = await res.json();
+
             if (res.ok) {
+                localStorage.setItem('meatlink_user', JSON.stringify({
+                    id: data.user.id,
+                    name: data.user.name,
+                    email: data.user.email
+                }));
                 router.push('/dashboard');
             } else {
-                alert('Registration failed. Please try again.');
+                alert(data.error || 'Registration failed. Please try again.');
             }
         } catch (err) {
             console.error(err);
