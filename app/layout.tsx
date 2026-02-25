@@ -25,7 +25,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.variable}>
         <Navbar />
-        <main style={{ paddingTop: '80px' }}>
+        <main style={{ paddingTop: '70px' }}>
           {children}
         </main>
         <Footer />

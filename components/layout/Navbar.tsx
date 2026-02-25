@@ -72,7 +72,7 @@ export default function Navbar() {
                     ) : (
                         <>
                             <Link href="/login" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Log In</Link>
-                            <Link href="/register" className={styles.link} onClick={() => setIsMobileMenuOpen(false)}>Join</Link>
+                            <Link href="/register" className={styles.registerBtn} onClick={() => setIsMobileMenuOpen(false)}>Join</Link>
                         </>
                     )}
                 </div>
