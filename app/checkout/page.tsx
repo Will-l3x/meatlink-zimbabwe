@@ -20,6 +20,7 @@ function CheckoutContent() {
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
+    const [savedRecipients, setSavedRecipients] = useState<Array<{ id: string, name: string, whatsapp: string, address: string, suburb: string }>>([]);
     const [formData, setFormData] = useState({
         recipientName: '',
         recipientWhatsApp: '',
@@ -27,6 +28,25 @@ function CheckoutContent() {
         recipientSuburb: '',
         frequency: 'WEEKLY'
     });
+
+    // Load saved recipients from dashboard
+    React.useEffect(() => {
+        const saved = localStorage.getItem('meatlink_recipients');
+        if (saved) setSavedRecipients(JSON.parse(saved));
+    }, []);
+
+    const selectSavedRecipient = (id: string) => {
+        const r = savedRecipients.find(r => r.id === id);
+        if (r) {
+            setFormData({
+                ...formData,
+                recipientName: r.name,
+                recipientWhatsApp: r.whatsapp,
+                recipientAddress: r.address,
+                recipientSuburb: r.suburb
+            });
+        }
+    };
 
     const getPriceLabel = () => {
         if (currency === 'zar') return `R${pack.zar}`;
@@ -85,6 +105,39 @@ function CheckoutContent() {
                 <div className={styles.main}>
                     <div className={styles.section}>
                         <h2>1. Recipient Details</h2>
+
+                        {savedRecipients.length > 0 && (
+                            <div className={styles.formGroup}>
+                                <label>Saved Recipients</label>
+                                <select
+                                    onChange={(e) => selectSavedRecipient(e.target.value)}
+                                    defaultValue=""
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid var(--card-border)',
+                                        background: 'var(--background)',
+                                        fontFamily: 'inherit',
+                                        fontSize: '0.9rem',
+                                        color: 'var(--text)',
+                                        cursor: 'pointer',
+                                        marginBottom: '0.5rem'
+                                    }}
+                                >
+                                    <option value="" disabled>Select a saved recipient...</option>
+                                    {savedRecipients.map(r => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.name} — {r.suburb}, Harare
+                                        </option>
+                                    ))}
+                                </select>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                                    Or fill in details manually below
+                                </p>
+                            </div>
+                        )}
+
                         <div className={styles.formGroup}>
                             <label>Recipient Name (Harare)</label>
                             <input

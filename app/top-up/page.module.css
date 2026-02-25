@@ -1,7 +1,7 @@
 .container {
-    max-width: 600px;
-    margin: 4rem auto;
-    padding: 0 2rem;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 2rem var(--spacing);
 }
 
 .card {
@@ -14,61 +14,236 @@
 
 .header {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
 }
 
 .header h1 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-    color: var(--foreground);
+    font-size: 1.8rem;
 }
 
-.header p {
-    color: var(--text-muted);
-}
-
-.details {
+/* Payment Method Tabs */
+.methodTabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
     margin-bottom: 2rem;
+}
+
+.methodTab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 2px solid var(--card-border);
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.methodTab:hover {
+    border-color: var(--text-light);
+}
+
+.methodTabActive {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+/* Currency Toggle */
+.currencyRow {
+    margin-bottom: 1.5rem;
+}
+
+.currencyRow label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.currencyToggle {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.currBtn {
+    flex: 1;
+    padding: 0.6rem;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.currBtn:hover {
+    border-color: var(--secondary);
+}
+
+.currBtnActive {
+    background: var(--secondary);
+    color: #fff;
+    border-color: var(--secondary);
+}
+
+/* Amount Section */
+.amountSection {
+    margin-bottom: 2rem;
+}
+
+.amountSection label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.presetBtn {
+    padding: 0.6rem 0.25rem;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text);
+    transition: all 0.2s;
+}
+
+.presetBtn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.presetBtnActive {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.customAmount {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--background);
+}
+
+.currSymbol {
+    padding: 0 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-right: 1px solid var(--card-border);
+}
+
+.customAmount input {
+    flex: 1;
+    padding: 0.85rem 1rem;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+}
+
+.customAmount input::placeholder {
+    color: var(--text-light);
+    font-weight: 400;
+}
+
+/* Stripe Section */
+.stripeSection {
+    margin-top: 1rem;
+}
+
+.secureNote {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(45, 106, 79, 0.06);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+/* Bank Details */
+.bankDetails {
+    background: var(--background);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.bankDetails h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--secondary);
+    margin-bottom: 1rem;
 }
 
 .detailRow {
     display: flex;
     justify-content: space-between;
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--border-light);
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 0.9rem;
+}
+
+.detailRow:last-child {
+    border-bottom: none;
 }
 
 .detailRow span:first-child {
     color: var(--text-muted);
-    font-size: 0.9rem;
 }
 
 .detailRow span:last-child {
-    font-weight: 700;
-    color: var(--foreground);
+    font-weight: 600;
+    color: var(--text);
 }
 
+/* Upload Area */
 .uploadArea {
-    margin-top: 2rem;
     border: 2px dashed var(--card-border);
-    padding: 3rem;
-    border-radius: var(--radius);
+    border-radius: 12px;
+    padding: 2rem;
     text-align: center;
-    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s;
-    background: var(--secondary-light);
+    margin-bottom: 1rem;
 }
 
 .uploadArea:hover {
     border-color: var(--primary);
-    color: var(--primary);
-}
-
-.successMsg {
-    text-align: center;
-    padding: 3rem 0;
-    color: var(--success);
-    font-weight: 700;
-    font-size: 1.1rem;
+    background: var(--primary-light);
 }

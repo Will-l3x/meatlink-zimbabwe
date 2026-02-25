@@ -32,7 +32,9 @@ export default function RegisterPage() {
                 localStorage.setItem('meatlink_user', JSON.stringify({
                     id: data.user.id,
                     name: data.user.name,
-                    email: data.user.email
+                    email: data.user.email,
+                    role: data.user.role || 'SENDER',
+                    walletBalance: data.user.walletBalance || 0
                 }));
                 router.push('/dashboard');
             } else {
