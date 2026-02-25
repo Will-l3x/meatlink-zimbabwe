@@ -8,9 +8,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 2rem;
-    background: rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-light);
     z-index: 1000;
     transition: all 0.3s ease;
 }
@@ -23,10 +23,11 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    letter-spacing: -0.02em;
 }
 
 .logo span {
-    color: var(--foreground);
+    color: var(--secondary);
 }
 
 .nav {
@@ -38,9 +39,9 @@
 .link {
     color: var(--foreground);
     text-decoration: none;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 500;
-    opacity: 0.8;
+    opacity: 0.6;
     transition: opacity 0.2s, color 0.2s;
 }
 
@@ -68,18 +69,19 @@
 
 .registerBtn {
     background: var(--primary);
-    color: #000;
+    color: #fff;
     text-decoration: none;
     padding: 0.6rem 1.25rem;
-    border-radius: 8px;
+    border-radius: 10px;
     font-weight: 700;
     font-size: 0.9rem;
-    transition: transform 0.2s, background 0.2s;
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .registerBtn:hover {
-    background: #e5bd3b;
+    background: var(--primary-hover);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(196, 69, 54, 0.2);
 }
 
 .hamburger {
@@ -94,10 +96,10 @@
 .userName {
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--primary);
-    background: rgba(212, 175, 55, 0.1);
+    color: var(--secondary);
+    background: var(--secondary-light);
     padding: 0.4rem 0.8rem;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 .mobileNav {
@@ -105,14 +107,14 @@
     top: 80px;
     left: 0;
     width: 100%;
-    background: #0a0a0a;
+    background: var(--background);
     padding: 2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     z-index: 1001;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 @media (max-width: 768px) {

@@ -1,25 +1,33 @@
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #faf8f5;
+  --foreground: #1a1a2e;
   
   /* Brand Colors */
-  --primary: #D4AF37; /* Metallic Gold */
-  --primary-hover: #F2C94C;
-  --secondary: #800000; /* Deep Maroon/Red */
-  --secondary-hover: #A00000;
+  --primary: #C44536;       /* Warm Terracotta Red */
+  --primary-hover: #d95a4a;
+  --primary-light: rgba(196, 69, 54, 0.08);
+  --secondary: #1B4332;     /* Deep Forest Green */
+  --secondary-hover: #2d6a4f;
+  --secondary-light: rgba(27, 67, 50, 0.08);
   
   /* Status Colors */
-  --success: #2E7D32;
-  --error: #d32f2f;
+  --success: #2d6a4f;
+  --error: #c1292e;
   
   /* UI/Surfaces */
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(10, 10, 10, 0.7);
-  --glass-border: rgba(212, 175, 55, 0.2); /* Gold trace */
+  --card-bg: #ffffff;
+  --card-border: rgba(27, 67, 50, 0.1);
+  --card-shadow: 0 2px 16px rgba(27, 67, 50, 0.06);
+  --glass-bg: rgba(250, 248, 245, 0.85);
+  --glass-border: rgba(27, 67, 50, 0.1);
+  
+  /* Muted text */
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
+  --border-light: rgba(27, 67, 50, 0.08);
   
   /* Spacing */
-  --radius: 12px;
+  --radius: 14px;
 }
 
 * {
@@ -31,8 +39,9 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Typography Utilities */
@@ -43,16 +52,17 @@ h1, h2, h3, h4, h5, h6 {
 
 h1 {
   font-size: 2.5rem;
-  letter-spacing: -0.02em;
-  background: linear-gradient(to right, #fff, #ccc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.03em;
+  color: var(--foreground);
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
 }
 
 /* Premium Button Utility */
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, #B8860B 100%);
-  color: #000;
+  background: linear-gradient(135deg, var(--primary) 0%, #a33327 100%);
+  color: #fff;
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius);
@@ -63,7 +73,7 @@ h1 {
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 16px rgba(196, 69, 54, 0.25);
 }
 
 .container {

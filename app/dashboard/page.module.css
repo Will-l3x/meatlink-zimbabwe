@@ -15,6 +15,7 @@
 
 .header h1 {
     font-size: 2.5rem;
+    color: var(--foreground);
 }
 
 .stats {
@@ -29,6 +30,7 @@
     border: 1px solid var(--card-border);
     padding: 2rem;
     border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
 }
 
 .walletCard {
@@ -41,7 +43,7 @@
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
     margin-bottom: 0.5rem;
 }
 
@@ -49,17 +51,18 @@
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1.5rem;
+    color: var(--foreground);
 }
 
 .deliveryCard {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(212, 175, 55, 0.05) 100%);
+    background: linear-gradient(135deg, var(--card-bg) 0%, rgba(27, 67, 50, 0.03) 100%);
 }
 
 .status {
     display: inline-flex;
     padding: 0.4rem 0.8rem;
-    background: rgba(46, 125, 50, 0.2);
-    color: #4caf50;
+    background: rgba(45, 106, 79, 0.08);
+    color: var(--success);
     border-radius: 50px;
     font-size: 0.8rem;
     font-weight: 700;
@@ -87,16 +90,17 @@
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     overflow: hidden;
+    box-shadow: var(--card-shadow);
 }
 
 .podImage {
     width: 100%;
     aspect-ratio: 1;
-    background: #1a1a1a;
+    background: #f0ebe4;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.1);
+    color: rgba(27, 67, 50, 0.1);
     font-weight: 700;
 }
 
@@ -107,15 +111,17 @@
 .podInfo h4 {
     font-size: 1rem;
     margin-bottom: 0.25rem;
+    color: var(--foreground);
 }
 
 .podInfo span {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
 }
 
 .sidePanel h3 {
     margin-bottom: 1.5rem;
+    color: var(--foreground);
 }
 
 .recipientList {
@@ -129,7 +135,7 @@
     align-items: center;
     gap: 1rem;
     padding: 1rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--secondary-light);
     border-radius: var(--radius);
 }
 
@@ -141,17 +147,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #000;
+    color: #fff;
     font-weight: 800;
 }
 
 .emptyState {
     padding: 3rem;
     text-align: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
+    background: var(--secondary-light);
+    border: 1px dashed var(--card-border);
     border-radius: var(--radius);
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--text-muted);
 }
 
 @media (max-width: 900px) {

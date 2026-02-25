@@ -46,7 +46,7 @@ export default function FinancesPage() {
                         <tbody>
                             {transactions.map((tx, i) => (
                                 <tr key={i}>
-                                    <td style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>{tx.date}</td>
+                                    <td style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{tx.date}</td>
                                     <td><strong>{tx.user}</strong></td>
                                     <td>{tx.method}</td>
                                     <td className={`${styles.currency} ${tx.type === 'Credit' ? styles.credit : styles.debit}`}>

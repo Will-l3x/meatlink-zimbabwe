@@ -144,7 +144,7 @@ function CheckoutContent() {
                             <Button variant="primary">Stripe / Card</Button>
                             <Button variant="secondary">Manual EFT (SA Banks)</Button>
                         </div>
-                        <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+                        <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center' }}>
                             For manual EFT, you will be prompted to upload a proof-of-payment screenshot.
                         </p>
                     </div>
@@ -178,7 +178,7 @@ function CheckoutContent() {
                     </div>
 
                     <div className={styles.total}>
-                        <span>Monthly Total</span>
+                        <span>{formData.frequency === 'WEEKLY' ? 'Weekly' : formData.frequency === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly'} Total</span>
                         <span>{getPriceLabel()}</span>
                     </div>
 
@@ -186,7 +186,7 @@ function CheckoutContent() {
                         {loading ? 'Processing...' : 'Confirm & Pay'}
                     </Button>
 
-                    <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: '1.4' }}>
+                    <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center', lineHeight: '1.4' }}>
                         By clicking "Confirm & Pay", you agree to fund your Wallet Balance for monthly deliveries. You can pause or skip weeks anytime from your dashboard.
                     </p>
                 </aside>

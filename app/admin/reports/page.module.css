@@ -6,102 +6,10 @@
 
 .header {
     margin-bottom: 3rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.title {
-    font-size: 2rem;
-    color: #fff;
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-    margin-bottom: 3rem;
-}
-
-.card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    padding: 2rem;
-}
-
-.cardTitle {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 1.5rem;
-}
-
-.chartPlaceholder {
-    height: 200px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 20px;
-}
-
-.bar {
-    flex: 1;
-    background: var(--primary);
-    border-radius: 4px 4px 0 0;
-    transition: transform 0.3s;
-}
-
-.bar:hover {
-    filter: brightness(1.2);
-    transform: scaleY(1.05);
-}
-
-.legend {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1rem;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.3);
-}
-
-.statsGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-}
-
-.miniStat {
-    text-align: center;
-}
-
-.miniLabel {
-    display: block;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
-    margin-bottom: 0.5rem;
-}
-
-.miniValue {
-    font-size: 1.25rem;
-    font-weight: 800;
-}
-
-.positive {
-    color: #4caf50;
-}
-
-.negative {
-    color: #f44336;
 }
 
 .backLink {
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
     text-decoration: none;
     font-size: 0.9rem;
     display: flex;
@@ -111,5 +19,120 @@
 }
 
 .backLink:hover {
-    color: #fff;
+    color: var(--foreground);
+}
+
+.header h1 {
+    font-size: 2rem;
+    color: var(--secondary);
+}
+
+.header p {
+    color: var(--text-muted);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--card-shadow);
+}
+
+.card h3 {
+    font-size: 1rem;
+    color: var(--foreground);
+    margin-bottom: 1.5rem;
+}
+
+.chart {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    height: 120px;
+}
+
+.bar {
+    flex: 1;
+    background: linear-gradient(135deg, var(--primary) 0%, #a33327 100%);
+    min-height: 10px;
+    border-radius: 4px 4px 0 0;
+    transition: opacity 0.3s;
+}
+
+.bar:hover {
+    opacity: 0.8;
+}
+
+.miniStats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.miniStat {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+}
+
+.miniStat .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.miniStat .val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-top: 0.5rem;
+    color: var(--foreground);
+}
+
+.leaderboard {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+}
+
+.leaderboard h3 {
+    padding: 1.5rem;
+    background: var(--secondary-light);
+    border-bottom: 1px solid var(--border-light);
+    color: var(--secondary);
+}
+
+.leaderItem {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--foreground);
+}
+
+.leaderItem span:first-child {
+    font-weight: 600;
+}
+
+.leaderItem span:last-child {
+    color: var(--primary);
+    font-weight: 800;
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
 }

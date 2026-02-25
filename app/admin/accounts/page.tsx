@@ -78,7 +78,7 @@ export default function AccountsPage() {
                                         </span>
                                     </td>
                                     <td>
-                                        <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                        <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                             Edit User
                                         </button>
                                     </td>
@@ -105,7 +105,7 @@ export default function AccountsPage() {
                                     <td>{r.sender}</td>
                                     <td>{r.lastDelivery}</td>
                                     <td>
-                                        <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                        <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                             View History
                                         </button>
                                     </td>

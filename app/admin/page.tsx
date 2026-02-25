@@ -63,7 +63,7 @@ export default function AdminPage() {
                 <div className={styles.panel}>
                     <div className={styles.panelHeader}>
                         <h3>Master Pick List</h3>
-                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>Delivery Day: Wednesday</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Delivery Day: Wednesday</span>
                     </div>
                     <div className={styles.weightContent}>
                         {masterPickList.map((item, i) => (

@@ -3,25 +3,26 @@
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     overflow: hidden;
-    transition: transform 0.3s ease, border-color 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--card-shadow);
 }
 
 .card:hover {
     transform: translateY(-5px);
-    border-color: rgba(212, 175, 55, 0.4);
+    box-shadow: 0 8px 30px rgba(27, 67, 50, 0.1);
 }
 
 .imagePlaceholder {
     width: 100%;
     aspect-ratio: 16/10;
-    background: linear-gradient(45deg, #1a1a1a, #2a2a2a);
+    background: linear-gradient(135deg, #f0ebe4, #e8e0d6);
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.2);
+    color: rgba(27, 67, 50, 0.2);
     font-weight: 700;
 }
 
@@ -36,7 +37,7 @@
     font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--primary);
+    color: var(--secondary);
     margin-bottom: 0.5rem;
     letter-spacing: 0.05em;
 }
@@ -44,11 +45,12 @@
 .title {
     font-size: 1.25rem;
     margin-bottom: 0.75rem;
+    color: var(--foreground);
 }
 
 .description {
     font-size: 0.9rem;
-    color: rgba(237, 237, 237, 0.6);
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
     line-height: 1.5;
     flex-grow: 1;
@@ -60,8 +62,8 @@
     gap: 1rem;
     margin-bottom: 1.5rem;
     padding: 1rem;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
+    background: var(--secondary-light);
+    border-radius: 10px;
 }
 
 .priceItem {
@@ -71,12 +73,13 @@
 
 .currency {
     font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-light);
 }
 
 .amount {
     font-weight: 700;
     font-size: 1.1rem;
+    color: var(--foreground);
 }
 
 .amountMain {

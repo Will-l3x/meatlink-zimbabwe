@@ -23,7 +23,7 @@ function SuccessContent() {
             <div className={styles.details}>
                 <div className={styles.detailItem}>
                     <span className={styles.detailLabel}>Order Status</span>
-                    <span className={styles.detailValue} style={{ color: '#4caf50' }}>ACTIVE</span>
+                    <span className={styles.detailValue} style={{ color: 'var(--success)' }}>ACTIVE</span>
                 </div>
                 <div className={styles.detailItem}>
                     <span className={styles.detailLabel}>Subscription ID</span>
@@ -40,7 +40,7 @@ function SuccessContent() {
                 <Button href="/shop" variant="secondary" fullWidth>Order More</Button>
             </div>
 
-            <p style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 A confirmation email has been sent to your registered address.
             </p>
         </div>

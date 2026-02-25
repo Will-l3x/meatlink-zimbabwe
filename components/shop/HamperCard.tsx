@@ -14,6 +14,7 @@ interface HamperCardProps {
     description: string;
     pricing: Pricing;
     tag?: string;
+    image?: string;
 }
 
 export default function HamperCard({
@@ -21,13 +22,23 @@ export default function HamperCard({
     title,
     description,
     pricing,
-    tag = "Hamper"
+    tag = "Hamper",
+    image
 }: HamperCardProps) {
     return (
         <div className={styles.card}>
             <div className={styles.imagePlaceholder}>
-                {/* We would use generate_image assets here */}
-                [Img: {title}]
+                {image ? (
+                    <img
+                        src={image}
+                        alt={title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                ) : (
+                    <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>
+                        [Img: {title}]
+                    </span>
+                )}
             </div>
 
             <div className={styles.content}>

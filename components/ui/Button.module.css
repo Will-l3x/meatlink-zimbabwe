@@ -13,25 +13,25 @@
 }
 
 .primary {
-    background: linear-gradient(135deg, var(--primary) 0%, #B8860B 100%);
-    color: #000;
-    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+    background: linear-gradient(135deg, var(--primary) 0%, #a33327 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(196, 69, 54, 0.2);
 }
 
 .primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+    box-shadow: 0 6px 24px rgba(196, 69, 54, 0.3);
 }
 
 .secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--foreground);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--secondary-light);
+    color: var(--secondary);
+    border: 1px solid rgba(27, 67, 50, 0.15);
 }
 
 .secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: var(--primary);
+    background: rgba(27, 67, 50, 0.12);
+    border-color: var(--secondary);
 }
 
 .fullWidth {

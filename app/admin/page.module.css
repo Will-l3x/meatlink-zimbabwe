@@ -15,7 +15,7 @@
 
 .header h1 {
     font-size: 2rem;
-    color: var(--primary);
+    color: var(--secondary);
 }
 
 .stats {
@@ -30,18 +30,20 @@
     border: 1px solid var(--card-border);
     padding: 1.5rem;
     border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
 }
 
 .label {
     font-size: 0.75rem;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
 }
 
 .value {
     font-size: 1.5rem;
     font-weight: 800;
     margin-top: 0.5rem;
+    color: var(--foreground);
 }
 
 .grid {
@@ -55,12 +57,13 @@
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     overflow: hidden;
+    box-shadow: var(--card-shadow);
 }
 
 .panelHeader {
     padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--secondary-light);
+    border-bottom: 1px solid var(--border-light);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -75,22 +78,23 @@
     text-align: left;
     padding: 1rem 1.5rem;
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted);
     text-transform: uppercase;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-light);
 }
 
 .table td {
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-light);
     font-size: 0.9rem;
+    color: var(--foreground);
 }
 
 .weightItem {
     display: flex;
     justify-content: space-between;
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-light);
 }
 
 .weightItem span:last-child {
@@ -100,19 +104,19 @@
 
 .badge {
     padding: 0.25rem 0.6rem;
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 0.7rem;
     font-weight: 800;
 }
 
 .badgeWeekly {
-    background: rgba(212, 175, 55, 0.1);
-    color: var(--primary);
+    background: var(--secondary-light);
+    color: var(--secondary);
 }
 
 .badgeMonthly {
-    background: rgba(128, 0, 0, 0.1);
-    color: #ff4d4d;
+    background: rgba(196, 69, 54, 0.08);
+    color: var(--primary);
 }
 
 .adminNav {
@@ -122,7 +126,7 @@
 }
 
 .navLink {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted);
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 600;
@@ -135,7 +139,7 @@
 
 .statSub {
     font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--text-light);
     margin-top: 0.25rem;
 }
 
@@ -151,6 +155,14 @@
 .btn {
     padding: 0.4rem 0.8rem;
     font-size: 0.75rem;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
+    background: var(--secondary-light);
+    color: var(--secondary);
+    border: 1px solid rgba(27, 67, 50, 0.15);
+    font-weight: 600;
+}
+
+.btn:hover {
+    background: rgba(27, 67, 50, 0.12);
 }

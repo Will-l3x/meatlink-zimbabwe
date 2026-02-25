@@ -73,7 +73,7 @@ export default function ReportsPage() {
                 <h3 className={styles.cardTitle}>Top Performing Hamper Packs</h3>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
                     <thead>
-                        <tr style={{ textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>
+                        <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                             <th style={{ padding: '1rem 0' }}>HAMPER</th>
                             <th>UNITS SOLD</th>
                             <th>REVENUE (USD)</th>
@@ -86,7 +86,7 @@ export default function ReportsPage() {
                             { name: 'Gogo Pack', units: 98, rev: 4410, grow: '+5%' },
                             { name: 'Braai Master', units: 44, rev: 5280, grow: '+25%' },
                         ].map((p, i) => (
-                            <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.9rem' }}>
+                            <tr key={i} style={{ borderBottom: '1px solid var(--border-light)', fontSize: '0.9rem' }}>
                                 <td style={{ padding: '1rem 0' }}><strong>{p.name}</strong></td>
                                 <td>{p.units}</td>
                                 <td>${p.rev.toLocaleString()}</td>
