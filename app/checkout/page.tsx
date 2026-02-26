@@ -24,7 +24,7 @@ function CheckoutContent() {
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet');
     const [savedRecipients, setSavedRecipients] = useState<Array<{ id: string, name: string, whatsapp: string, address: string, suburb: string }>>([]);
-    const [walletBalance, setWalletBalance] = useState(0);
+    const [walletBalances, setWalletBalances] = useState({ usd: 0, zar: 0, gbp: 0 });
     const [formData, setFormData] = useState({
         recipientName: '',
         recipientWhatsApp: '',
@@ -38,7 +38,11 @@ function CheckoutContent() {
         const storedUser = localStorage.getItem('meatlink_user');
         if (storedUser) {
             const user = JSON.parse(storedUser);
-            setWalletBalance(user.walletBalance || 0);
+            setWalletBalances({
+                usd: user.walletUSD || 0,
+                zar: user.walletZAR || 0,
+                gbp: user.walletGBP || 0
+            });
 
             // Load recipients specific to this user
             const saved = localStorage.getItem(`meatlink_recipients_${user.id}`);
@@ -94,10 +98,11 @@ function CheckoutContent() {
         const user = JSON.parse(storedUser);
         const price = getPrice();
 
-        // Wallet payment: check balance
+        // Wallet payment: check balance for the selected currency
         if (paymentMethod === 'wallet') {
-            if ((user.walletBalance || 0) < price) {
-                alert(`Insufficient wallet balance. You have ${getCurrencySymbol()}${(user.walletBalance || 0).toFixed(2)} but need ${getPriceLabel()}. Please top up your wallet first.`);
+            const currBal = currency === 'zar' ? (user.walletZAR || 0) : currency === 'gbp' ? (user.walletGBP || 0) : (user.walletUSD || 0);
+            if (currBal < price) {
+                alert(`Insufficient ${currency.toUpperCase()} wallet balance. You have ${getCurrencySymbol()}${currBal.toFixed(2)} but need ${getPriceLabel()}. Please top up your wallet first.`);
                 return;
             }
         }
@@ -121,9 +126,10 @@ function CheckoutContent() {
 
             const data = await res.json();
             if (data.success) {
-                // Wallet payment: deduct from balance
+                // Wallet payment: deduct from the correct currency balance
                 if (paymentMethod === 'wallet') {
-                    user.walletBalance = (user.walletBalance || 0) - price;
+                    const walletKey = currency === 'zar' ? 'walletZAR' : currency === 'gbp' ? 'walletGBP' : 'walletUSD';
+                    user[walletKey] = (user[walletKey] || 0) - price;
                     localStorage.setItem('meatlink_user', JSON.stringify(user));
                 }
 
@@ -151,7 +157,8 @@ function CheckoutContent() {
         }
     };
 
-    const hasEnoughBalance = walletBalance >= getPrice();
+    const currentWalletBalance = walletBalances[currency];
+    const hasEnoughBalance = currentWalletBalance >= getPrice();
 
     return (
         <div className={styles.container}>
@@ -263,7 +270,7 @@ function CheckoutContent() {
                                 <div className={styles.paymentInfo}>
                                     <div className={styles.paymentLabel}>MeatLink Wallet</div>
                                     <div className={styles.paymentDesc}>
-                                        Balance: {getCurrencySymbol()}{walletBalance.toFixed(2)}
+                                        Balance: {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
                                         {!hasEnoughBalance && (
                                             <span style={{ color: 'var(--error)', fontWeight: 600 }}> — Insufficient</span>
                                         )}
@@ -313,7 +320,7 @@ function CheckoutContent() {
                                 <span style={{ fontSize: '1.2rem' }}>⚠️</span>
                                 <div>
                                     <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--error)' }}>
-                                        You need {getPriceLabel()} but only have {getCurrencySymbol()}{walletBalance.toFixed(2)}
+                                        You need {getPriceLabel()} but only have {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
                                     </p>
                                     <a href="/top-up" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
                                         Top up your wallet →
@@ -383,7 +390,7 @@ function CheckoutContent() {
                             textAlign: 'center',
                             fontWeight: 600
                         }}>
-                            ✓ Remaining balance after payment: {getCurrencySymbol()}{(walletBalance - getPrice()).toFixed(2)}
+                            ✓ Remaining balance after payment: {getCurrencySymbol()}{(currentWalletBalance - getPrice()).toFixed(2)}
                         </p>
                     )}
 

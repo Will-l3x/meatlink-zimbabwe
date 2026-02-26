@@ -30,7 +30,10 @@ export async function POST(request: Request) {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                walletBalance: user.walletBalance
+                walletBalance: user.walletBalance,
+                walletUSD: user.walletUSD,
+                walletZAR: user.walletZAR,
+                walletGBP: user.walletGBP
             }
         });
     } catch (error) {

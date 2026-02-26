@@ -34,7 +34,10 @@ export default function RegisterPage() {
                     name: data.user.name,
                     email: data.user.email,
                     role: data.user.role || 'SENDER',
-                    walletBalance: data.user.walletBalance || 0
+                    walletBalance: data.user.walletBalance || 0,
+                    walletUSD: data.user.walletUSD || 0,
+                    walletZAR: data.user.walletZAR || 0,
+                    walletGBP: data.user.walletGBP || 0
                 }));
                 router.push('/dashboard');
             } else {

@@ -15,11 +15,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Invalid amount' }, { status: 400 });
         }
 
-        // Update wallet balance in MongoDB
+        // Determine which wallet field to update based on currency
+        const curr = (currency || 'USD').toUpperCase();
+        const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+
+        // Update the specific currency wallet in MongoDB
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
-                walletBalance: { increment: parsedAmount }
+                [walletField]: { increment: parsedAmount }
             }
         });
 
@@ -29,17 +33,19 @@ export async function POST(request: Request) {
                 userId,
                 amount: parsedAmount,
                 type: 'DEPOSIT',
-                description: `Wallet top-up via ${provider || 'stripe'} (${(currency || 'USD').toUpperCase()})`,
+                description: `Wallet top-up via ${provider || 'stripe'} (${curr})`,
                 reference: `DEP-${Date.now().toString(36).toUpperCase()}`
             }
         });
 
-        console.log(`[Wallet] ${updatedUser.name} topped up ${currency || 'USD'} ${parsedAmount} via ${provider}. New balance: ${updatedUser.walletBalance}`);
+        console.log(`[Wallet] ${updatedUser.name} topped up ${curr} ${parsedAmount} via ${provider}. Balances: USD=${updatedUser.walletUSD} ZAR=${updatedUser.walletZAR} GBP=${updatedUser.walletGBP}`);
 
         return NextResponse.json({
             success: true,
-            newBalance: updatedUser.walletBalance,
-            message: `Successfully added ${parsedAmount} to your wallet.`
+            walletUSD: updatedUser.walletUSD,
+            walletZAR: updatedUser.walletZAR,
+            walletGBP: updatedUser.walletGBP,
+            message: `Successfully added ${curr} ${parsedAmount} to your wallet.`
         });
     } catch (error) {
         console.error('Wallet top-up error:', error);

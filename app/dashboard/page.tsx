@@ -10,6 +10,9 @@ interface UserData {
     name: string;
     email: string;
     walletBalance: number;
+    walletUSD: number;
+    walletZAR: number;
+    walletGBP: number;
     role?: string;
 }
 
@@ -108,8 +111,21 @@ export default function DashboardPage() {
             {/* Stats Cards */}
             <div className={styles.stats}>
                 <div className={`${styles.card} ${styles.walletCard}`}>
-                    <span className={styles.label}>Wallet Balance</span>
-                    <div className={styles.value}>${(user?.walletBalance || 0).toFixed(2)}</div>
+                    <span className={styles.label}>Wallet Balances</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', margin: '0.75rem 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇺🇸 USD</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>${(user?.walletUSD || 0).toFixed(2)}</span>
+                        </div>
+                        <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇿🇦 ZAR</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>R{(user?.walletZAR || 0).toFixed(2)}</span>
+                        </div>
+                        <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇬🇧 GBP</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>£{(user?.walletGBP || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
                     <Button fullWidth href="/top-up">Top Up Funds</Button>
                 </div>
 

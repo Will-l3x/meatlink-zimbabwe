@@ -93,12 +93,15 @@ export async function POST(request: Request) {
             }
         });
 
-        // 6. If paying from wallet, deduct balance
+        // 6. If paying from wallet, deduct from the correct currency balance
         if (paymentMethod === 'wallet') {
+            const curr = (currency || 'USD').toUpperCase();
+            const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+
             await prisma.user.update({
                 where: { id: senderId },
                 data: {
-                    walletBalance: { decrement: parseFloat(amount) }
+                    [walletField]: { decrement: parseFloat(amount) }
                 }
             });
         }

@@ -49,7 +49,9 @@ export default function TopUpPage() {
             const data = await res.json();
             if (data.success) {
                 if (user) {
-                    user.walletBalance = data.newBalance;
+                    user.walletUSD = data.walletUSD;
+                    user.walletZAR = data.walletZAR;
+                    user.walletGBP = data.walletGBP;
                     localStorage.setItem('meatlink_user', JSON.stringify(user));
                 }
                 setSuccess(true);
