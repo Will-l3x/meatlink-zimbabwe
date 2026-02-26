@@ -670,4 +670,248 @@
         padding: 0.6rem 0.75rem;
         font-size: 0.75rem;
     }
+
+    .kanbanBoard {
+        grid-template-columns: 1fr;
+    }
+
+    .orderCounts {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ===== ORDERS & KANBAN ===== */
+.generateBtn {
+    padding: 0.5rem 1.25rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.generateBtn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.batchNotice {
+    background: rgba(34, 139, 34, 0.08);
+    border: 1px solid rgba(34, 139, 34, 0.2);
+    border-radius: 10px;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #228b22;
+    margin-bottom: 1.5rem;
+}
+
+.orderCounts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.orderCountCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.orderCountNum {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.orderCountLabel {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+
+.orderCountIncoming .orderCountNum {
+    color: #b8860b;
+}
+
+.orderCountOnRoute .orderCountNum {
+    color: #2563eb;
+}
+
+.orderCountDelivered .orderCountNum {
+    color: #228b22;
+}
+
+.orderCountDelayed .orderCountNum {
+    color: var(--primary);
+}
+
+.kanbanBoard {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    min-height: 400px;
+}
+
+.kanbanColumn {
+    background: rgba(0, 0, 0, 0.015);
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.kanbanHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.kanbanHeaderIncoming {
+    background: rgba(184, 134, 11, 0.1);
+    color: #b8860b;
+}
+
+.kanbanHeaderOnRoute {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+.kanbanHeaderDelivered {
+    background: rgba(34, 139, 34, 0.1);
+    color: #228b22;
+}
+
+.kanbanHeaderDelayed {
+    background: rgba(196, 69, 54, 0.08);
+    color: var(--primary);
+}
+
+.kanbanCount {
+    background: rgba(0, 0, 0, 0.08);
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.kanbanCards {
+    flex: 1;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow-y: auto;
+    max-height: 600px;
+}
+
+.kanbanEmpty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 2rem 0.5rem;
+}
+
+.orderCard {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 0.85rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.15s;
+}
+
+.orderCard:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.orderRecipient {
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-bottom: 0.35rem;
+    color: var(--foreground);
+}
+
+.orderMeta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.orderDate {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-light);
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.orderActions {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.orderActions button {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.actionBtnRoute {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+.actionBtnRoute:hover {
+    background: rgba(37, 99, 235, 0.18);
+}
+
+.actionBtnDeliver {
+    background: rgba(34, 139, 34, 0.1);
+    color: #228b22;
+}
+
+.actionBtnDeliver:hover {
+    background: rgba(34, 139, 34, 0.18);
+}
+
+.actionBtnDelay {
+    background: rgba(196, 69, 54, 0.08);
+    color: var(--primary);
+}
+
+.actionBtnDelay:hover {
+    background: rgba(196, 69, 54, 0.15);
+}
+
+.actionBtnPending {
+    background: rgba(184, 134, 11, 0.1);
+    color: #b8860b;
+}
+
+.actionBtnPending:hover {
+    background: rgba(184, 134, 11, 0.18);
 }

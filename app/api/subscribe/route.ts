@@ -82,7 +82,17 @@ export async function POST(request: Request) {
             }
         });
 
-        // 5. Record Transaction (wallet deduction)
+        // 5. Auto-create a PENDING Delivery so it appears in admin Incoming immediately
+        await prisma.delivery.create({
+            data: {
+                subscriptionId: subscription.id,
+                recipientId: recipient.id,
+                status: 'PENDING',
+                scheduledDate: nextDelivery
+            }
+        });
+
+        // 6. Record Transaction (wallet deduction)
         await prisma.transaction.create({
             data: {
                 userId: senderId,

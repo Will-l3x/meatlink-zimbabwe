@@ -4,7 +4,41 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
-type Tab = 'overview' | 'users' | 'subscriptions' | 'finances';
+type Tab = 'overview' | 'orders' | 'users' | 'subscriptions' | 'finances';
+
+interface OrderDelivery {
+    id: string;
+    status: string;
+    scheduledDate: string;
+    deliveredAt: string | null;
+    createdAt: string;
+    recipient: {
+        name: string;
+        whatsapp: string;
+        suburb: string;
+        address: string;
+    };
+    subscription: {
+        sender: { name: string; email: string };
+        hamper: { name: string } | null;
+    };
+}
+
+interface OrdersData {
+    grouped: {
+        incoming: OrderDelivery[];
+        onRoute: OrderDelivery[];
+        delivered: OrderDelivery[];
+        delayed: OrderDelivery[];
+    };
+    counts: {
+        total: number;
+        incoming: number;
+        onRoute: number;
+        delivered: number;
+        delayed: number;
+    };
+}
 
 interface AdminData {
     stats: {
@@ -66,6 +100,9 @@ export default function AdminPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [userFilter, setUserFilter] = useState<'all' | 'SENDER' | 'ADMIN'>('all');
     const [txFilter, setTxFilter] = useState<'all' | 'DEPOSIT' | 'DEDUCTION'>('all');
+    const [ordersData, setOrdersData] = useState<OrdersData | null>(null);
+    const [ordersLoading, setOrdersLoading] = useState(false);
+    const [batchMessage, setBatchMessage] = useState('');
 
     useEffect(() => {
         // Check admin auth
@@ -82,6 +119,7 @@ export default function AdminPage() {
         }
 
         fetchData();
+        fetchOrders();
     }, [router]);
 
     const fetchData = async () => {
@@ -97,6 +135,57 @@ export default function AdminPage() {
             setError('Network error — could not reach server');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchOrders = async () => {
+        setOrdersLoading(true);
+        try {
+            const res = await fetch('/api/orders');
+            const result = await res.json();
+            if (result.success) {
+                setOrdersData(result);
+            }
+        } catch (err) {
+            console.error('Orders fetch error:', err);
+        } finally {
+            setOrdersLoading(false);
+        }
+    };
+
+    const generateBatch = async () => {
+        setBatchMessage('');
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'generate_batch' })
+            });
+            const result = await res.json();
+            if (result.success) {
+                setBatchMessage(result.message);
+                fetchOrders();
+            } else {
+                setBatchMessage('Failed: ' + result.error);
+            }
+        } catch (err) {
+            setBatchMessage('Network error');
+        }
+    };
+
+    const updateOrderStatus = async (deliveryId: string, status: string) => {
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_status', deliveryId, status })
+            });
+            const result = await res.json();
+            if (result.success) {
+                fetchOrders();
+            }
+        } catch (err) {
+            console.error('Status update error:', err);
         }
     };
 
@@ -160,6 +249,7 @@ export default function AdminPage() {
 
     const tabs: { key: Tab; label: string; icon: string }[] = [
         { key: 'overview', label: 'Overview', icon: '📊' },
+        { key: 'orders', label: 'Orders', icon: '🚚' },
         { key: 'users', label: 'Users', icon: '👥' },
         { key: 'subscriptions', label: 'Subscriptions', icon: '📦' },
         { key: 'finances', label: 'Finances', icon: '💰' },
@@ -562,6 +652,184 @@ export default function AdminPage() {
                                 <p className={styles.emptyState}>No transactions match your filters</p>
                             )}
                         </div>
+                    </>
+                )}
+
+                {/* ===== ORDERS TAB ===== */}
+                {activeTab === 'orders' && (
+                    <>
+                        <header className={styles.pageHeader}>
+                            <div>
+                                <h1>Orders & Logistics</h1>
+                                <p className={styles.subtitle}>Plan, track, and manage weekly deliveries</p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button className={styles.refreshBtn} onClick={fetchOrders}>🔄 Refresh</button>
+                                <button className={styles.generateBtn} onClick={generateBatch}>📦 Generate Next Batch</button>
+                            </div>
+                        </header>
+
+                        {batchMessage && (
+                            <div className={styles.batchNotice}>
+                                ✅ {batchMessage}
+                            </div>
+                        )}
+
+                        {/* Order Counts */}
+                        {ordersData && (
+                            <div className={styles.orderCounts}>
+                                <div className={`${styles.orderCountCard} ${styles.orderCountIncoming}`}>
+                                    <span className={styles.orderCountNum}>{ordersData.counts.incoming}</span>
+                                    <span className={styles.orderCountLabel}>Incoming</span>
+                                </div>
+                                <div className={`${styles.orderCountCard} ${styles.orderCountOnRoute}`}>
+                                    <span className={styles.orderCountNum}>{ordersData.counts.onRoute}</span>
+                                    <span className={styles.orderCountLabel}>On Route</span>
+                                </div>
+                                <div className={`${styles.orderCountCard} ${styles.orderCountDelivered}`}>
+                                    <span className={styles.orderCountNum}>{ordersData.counts.delivered}</span>
+                                    <span className={styles.orderCountLabel}>Delivered</span>
+                                </div>
+                                <div className={`${styles.orderCountCard} ${styles.orderCountDelayed}`}>
+                                    <span className={styles.orderCountNum}>{ordersData.counts.delayed}</span>
+                                    <span className={styles.orderCountLabel}>Delayed</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {ordersLoading ? (
+                            <div className={styles.loadingScreen} style={{ minHeight: '200px' }}>
+                                <div className={styles.spinner} />
+                                <p>Loading orders...</p>
+                            </div>
+                        ) : ordersData ? (
+                            <div className={styles.kanbanBoard}>
+                                {/* Incoming Column */}
+                                <div className={styles.kanbanColumn}>
+                                    <div className={`${styles.kanbanHeader} ${styles.kanbanHeaderIncoming}`}>
+                                        <span>📥 Incoming</span>
+                                        <span className={styles.kanbanCount}>{ordersData.counts.incoming}</span>
+                                    </div>
+                                    <div className={styles.kanbanCards}>
+                                        {ordersData.grouped.incoming.map(order => (
+                                            <div key={order.id} className={styles.orderCard}>
+                                                <div className={styles.orderRecipient}>{order.recipient.name}</div>
+                                                <div className={styles.orderMeta}>
+                                                    📍 {order.recipient.suburb} • 📱 {order.recipient.whatsapp}
+                                                </div>
+                                                <div className={styles.orderMeta}>
+                                                    🎁 {order.subscription.hamper?.name || 'Pack'}
+                                                </div>
+                                                <div className={styles.orderMeta}>
+                                                    👤 From: {order.subscription.sender.name}
+                                                </div>
+                                                <div className={styles.orderDate}>
+                                                    📅 {formatShortDate(order.scheduledDate)}
+                                                </div>
+                                                <div className={styles.orderActions}>
+                                                    <button className={styles.actionBtnRoute} onClick={() => updateOrderStatus(order.id, 'ON_ROUTE')}>🚚 Dispatch</button>
+                                                    <button className={styles.actionBtnDelay} onClick={() => updateOrderStatus(order.id, 'DELAYED')}>⏳ Delay</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {ordersData.grouped.incoming.length === 0 && (
+                                            <p className={styles.kanbanEmpty}>No incoming orders</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* On Route Column */}
+                                <div className={styles.kanbanColumn}>
+                                    <div className={`${styles.kanbanHeader} ${styles.kanbanHeaderOnRoute}`}>
+                                        <span>🚚 On Route</span>
+                                        <span className={styles.kanbanCount}>{ordersData.counts.onRoute}</span>
+                                    </div>
+                                    <div className={styles.kanbanCards}>
+                                        {ordersData.grouped.onRoute.map(order => (
+                                            <div key={order.id} className={styles.orderCard}>
+                                                <div className={styles.orderRecipient}>{order.recipient.name}</div>
+                                                <div className={styles.orderMeta}>
+                                                    📍 {order.recipient.suburb} • {order.recipient.address}
+                                                </div>
+                                                <div className={styles.orderMeta}>
+                                                    🎁 {order.subscription.hamper?.name || 'Pack'}
+                                                </div>
+                                                <div className={styles.orderDate}>
+                                                    📅 {formatShortDate(order.scheduledDate)}
+                                                </div>
+                                                <div className={styles.orderActions}>
+                                                    <button className={styles.actionBtnDeliver} onClick={() => updateOrderStatus(order.id, 'DELIVERED')}>✅ Delivered</button>
+                                                    <button className={styles.actionBtnDelay} onClick={() => updateOrderStatus(order.id, 'DELAYED')}>⏳ Delay</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {ordersData.grouped.onRoute.length === 0 && (
+                                            <p className={styles.kanbanEmpty}>No orders on route</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Delivered Column */}
+                                <div className={styles.kanbanColumn}>
+                                    <div className={`${styles.kanbanHeader} ${styles.kanbanHeaderDelivered}`}>
+                                        <span>✅ Delivered</span>
+                                        <span className={styles.kanbanCount}>{ordersData.counts.delivered}</span>
+                                    </div>
+                                    <div className={styles.kanbanCards}>
+                                        {ordersData.grouped.delivered.map(order => (
+                                            <div key={order.id} className={styles.orderCard}>
+                                                <div className={styles.orderRecipient}>{order.recipient.name}</div>
+                                                <div className={styles.orderMeta}>
+                                                    📍 {order.recipient.suburb}
+                                                </div>
+                                                <div className={styles.orderMeta}>
+                                                    🎁 {order.subscription.hamper?.name || 'Pack'}
+                                                </div>
+                                                <div className={styles.orderDate} style={{ color: 'var(--success)' }}>
+                                                    ✓ {order.deliveredAt ? formatShortDate(order.deliveredAt) : formatShortDate(order.scheduledDate)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {ordersData.grouped.delivered.length === 0 && (
+                                            <p className={styles.kanbanEmpty}>No delivered orders yet</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Delayed Column */}
+                                <div className={styles.kanbanColumn}>
+                                    <div className={`${styles.kanbanHeader} ${styles.kanbanHeaderDelayed}`}>
+                                        <span>⏳ Delayed</span>
+                                        <span className={styles.kanbanCount}>{ordersData.counts.delayed}</span>
+                                    </div>
+                                    <div className={styles.kanbanCards}>
+                                        {ordersData.grouped.delayed.map(order => (
+                                            <div key={order.id} className={styles.orderCard}>
+                                                <div className={styles.orderRecipient}>{order.recipient.name}</div>
+                                                <div className={styles.orderMeta}>
+                                                    📍 {order.recipient.suburb}
+                                                </div>
+                                                <div className={styles.orderMeta}>
+                                                    🎁 {order.subscription.hamper?.name || 'Pack'}
+                                                </div>
+                                                <div className={styles.orderDate} style={{ color: 'var(--error)' }}>
+                                                    ⚠ Scheduled: {formatShortDate(order.scheduledDate)}
+                                                </div>
+                                                <div className={styles.orderActions}>
+                                                    <button className={styles.actionBtnRoute} onClick={() => updateOrderStatus(order.id, 'ON_ROUTE')}>🚚 Retry</button>
+                                                    <button className={styles.actionBtnPending} onClick={() => updateOrderStatus(order.id, 'PENDING')}>↩ Reschedule</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {ordersData.grouped.delayed.length === 0 && (
+                                            <p className={styles.kanbanEmpty}>No delayed orders</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className={styles.emptyState}>Could not load orders data</p>
+                        )}
                     </>
                 )}
             </main>
