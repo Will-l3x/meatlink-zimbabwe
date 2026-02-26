@@ -12,6 +12,8 @@ const HAMPERS = {
     'monthly-saver': { title: 'Monthly Saver', usd: 180, zar: 3350, gbp: 140 },
 };
 
+type PaymentMethod = 'wallet' | 'stripe' | 'eft';
+
 function CheckoutContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -20,7 +22,9 @@ function CheckoutContent() {
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet');
     const [savedRecipients, setSavedRecipients] = useState<Array<{ id: string, name: string, whatsapp: string, address: string, suburb: string }>>([]);
+    const [walletBalance, setWalletBalance] = useState(0);
     const [formData, setFormData] = useState({
         recipientName: '',
         recipientWhatsApp: '',
@@ -29,10 +33,16 @@ function CheckoutContent() {
         frequency: 'WEEKLY'
     });
 
-    // Load saved recipients from dashboard
+    // Load saved recipients and wallet balance
     React.useEffect(() => {
         const saved = localStorage.getItem('meatlink_recipients');
         if (saved) setSavedRecipients(JSON.parse(saved));
+
+        const storedUser = localStorage.getItem('meatlink_user');
+        if (storedUser) {
+            const user = JSON.parse(storedUser);
+            setWalletBalance(user.walletBalance || 0);
+        }
     }, []);
 
     const selectSavedRecipient = (id: string) => {
@@ -48,13 +58,31 @@ function CheckoutContent() {
         }
     };
 
+    const getPrice = () => {
+        if (currency === 'zar') return pack.zar;
+        if (currency === 'gbp') return pack.gbp;
+        return pack.usd;
+    };
+
     const getPriceLabel = () => {
         if (currency === 'zar') return `R${pack.zar}`;
         if (currency === 'gbp') return `£${pack.gbp}`;
         return `$${pack.usd}`;
     };
 
+    const getCurrencySymbol = () => {
+        if (currency === 'zar') return 'R';
+        if (currency === 'gbp') return '£';
+        return '$';
+    };
+
     const handleConfirm = async () => {
+        // Validate form
+        if (!formData.recipientName || !formData.recipientWhatsApp || !formData.recipientAddress || !formData.recipientSuburb) {
+            alert('Please fill in all recipient details.');
+            return;
+        }
+
         const storedUser = localStorage.getItem('meatlink_user');
         if (!storedUser) {
             alert('Please log in or register to place an order.');
@@ -63,6 +91,16 @@ function CheckoutContent() {
         }
 
         const user = JSON.parse(storedUser);
+        const price = getPrice();
+
+        // Wallet payment: check balance
+        if (paymentMethod === 'wallet') {
+            if ((user.walletBalance || 0) < price) {
+                alert(`Insufficient wallet balance. You have ${getCurrencySymbol()}${(user.walletBalance || 0).toFixed(2)} but need ${getPriceLabel()}. Please top up your wallet first.`);
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -74,25 +112,45 @@ function CheckoutContent() {
                     senderId: user.id,
                     senderName: user.name,
                     hamperId: packId,
-                    amount: pack[currency === 'usd' ? 'usd' : currency === 'zar' ? 'zar' : 'gbp'],
-                    currency: currency.toUpperCase()
+                    amount: price,
+                    currency: currency.toUpperCase(),
+                    paymentMethod
                 })
             });
 
             const data = await res.json();
             if (data.success) {
-                // Simulate redirect to payment gateway
+                // Wallet payment: deduct from balance
+                if (paymentMethod === 'wallet') {
+                    user.walletBalance = (user.walletBalance || 0) - price;
+                    localStorage.setItem('meatlink_user', JSON.stringify(user));
+                }
+
+                // Save delivery to localStorage for dashboard feed
+                const deliveries = JSON.parse(localStorage.getItem('meatlink_deliveries') || '[]');
+                deliveries.unshift({
+                    id: data.subscriptionId,
+                    recipientName: formData.recipientName,
+                    date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+                    location: `${formData.recipientSuburb}, Harare`,
+                    status: 'Scheduled',
+                    pack: pack.title
+                });
+                localStorage.setItem('meatlink_deliveries', JSON.stringify(deliveries));
+
                 router.push(`/checkout/success?subId=${data.subscriptionId}`);
             } else {
-                alert(data.error || 'Checkout failed.');
+                alert(data.error || 'Checkout failed. Please try again.');
             }
         } catch (err) {
             console.error(err);
-            alert('An error occurred during checkout.');
+            alert('An error occurred during checkout. Please try again.');
         } finally {
             setLoading(false);
         }
     };
+
+    const hasEnoughBalance = walletBalance >= getPrice();
 
     return (
         <div className={styles.container}>
@@ -177,7 +235,7 @@ function CheckoutContent() {
                     </div>
 
                     <div className={styles.section}>
-                        <h2>2. Delivery Settings</h2>
+                        <h2>2. Delivery Frequency</h2>
                         <div className={styles.formGroup}>
                             <label>Frequency</label>
                             <select
@@ -193,13 +251,75 @@ function CheckoutContent() {
 
                     <div className={styles.section}>
                         <h2>3. Payment Method</h2>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <Button variant="primary">Stripe / Card</Button>
-                            <Button variant="secondary">Manual EFT (SA Banks)</Button>
+
+                        <div className={styles.paymentMethods}>
+                            {/* Wallet Option */}
+                            <button
+                                className={`${styles.paymentOption} ${paymentMethod === 'wallet' ? styles.paymentOptionActive : ''}`}
+                                onClick={() => setPaymentMethod('wallet')}
+                            >
+                                <div className={styles.paymentIcon}>💰</div>
+                                <div className={styles.paymentInfo}>
+                                    <div className={styles.paymentLabel}>MeatLink Wallet</div>
+                                    <div className={styles.paymentDesc}>
+                                        Balance: {getCurrencySymbol()}{walletBalance.toFixed(2)}
+                                        {!hasEnoughBalance && (
+                                            <span style={{ color: 'var(--error)', fontWeight: 600 }}> — Insufficient</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className={`${styles.paymentRadio} ${paymentMethod === 'wallet' ? styles.paymentRadioActive : ''}`} />
+                            </button>
+
+                            {/* Stripe Option */}
+                            <button
+                                className={`${styles.paymentOption} ${paymentMethod === 'stripe' ? styles.paymentOptionActive : ''}`}
+                                onClick={() => setPaymentMethod('stripe')}
+                            >
+                                <div className={styles.paymentIcon}>💳</div>
+                                <div className={styles.paymentInfo}>
+                                    <div className={styles.paymentLabel}>Credit / Debit Card</div>
+                                    <div className={styles.paymentDesc}>Processed securely via Stripe</div>
+                                </div>
+                                <div className={`${styles.paymentRadio} ${paymentMethod === 'stripe' ? styles.paymentRadioActive : ''}`} />
+                            </button>
+
+                            {/* EFT Option */}
+                            <button
+                                className={`${styles.paymentOption} ${paymentMethod === 'eft' ? styles.paymentOptionActive : ''}`}
+                                onClick={() => setPaymentMethod('eft')}
+                            >
+                                <div className={styles.paymentIcon}>🏦</div>
+                                <div className={styles.paymentInfo}>
+                                    <div className={styles.paymentLabel}>Bank Transfer (EFT)</div>
+                                    <div className={styles.paymentDesc}>SA banks — upload proof of payment</div>
+                                </div>
+                                <div className={`${styles.paymentRadio} ${paymentMethod === 'eft' ? styles.paymentRadioActive : ''}`} />
+                            </button>
                         </div>
-                        <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center' }}>
-                            For manual EFT, you will be prompted to upload a proof-of-payment screenshot.
-                        </p>
+
+                        {paymentMethod === 'wallet' && !hasEnoughBalance && (
+                            <div style={{
+                                marginTop: '1rem',
+                                padding: '1rem',
+                                background: 'rgba(193, 41, 46, 0.06)',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(193, 41, 46, 0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem'
+                            }}>
+                                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                                <div>
+                                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--error)' }}>
+                                        You need {getPriceLabel()} but only have {getCurrencySymbol()}{walletBalance.toFixed(2)}
+                                    </p>
+                                    <a href="/top-up" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
+                                        Top up your wallet →
+                                    </a>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -226,6 +346,10 @@ function CheckoutContent() {
                         <span>Upcoming Wednesday</span>
                     </div>
                     <div className={styles.summaryItem}>
+                        <span>Payment</span>
+                        <span>{paymentMethod === 'wallet' ? 'Wallet' : paymentMethod === 'stripe' ? 'Stripe' : 'EFT'}</span>
+                    </div>
+                    <div className={styles.summaryItem}>
                         <span>Processing Fee</span>
                         <span>Free</span>
                     </div>
@@ -235,12 +359,35 @@ function CheckoutContent() {
                         <span>{getPriceLabel()}</span>
                     </div>
 
-                    <Button fullWidth onClick={handleConfirm} style={{ marginTop: '2rem' }}>
-                        {loading ? 'Processing...' : 'Confirm & Pay'}
+                    <Button
+                        fullWidth
+                        onClick={handleConfirm}
+                        style={{ marginTop: '2rem' }}
+                    >
+                        {loading
+                            ? 'Processing...'
+                            : paymentMethod === 'wallet'
+                                ? `Pay ${getPriceLabel()} from Wallet`
+                                : paymentMethod === 'stripe'
+                                    ? `Pay ${getPriceLabel()} with Card`
+                                    : 'Confirm & Upload Proof'
+                        }
                     </Button>
 
+                    {paymentMethod === 'wallet' && hasEnoughBalance && (
+                        <p style={{
+                            marginTop: '0.75rem',
+                            fontSize: '0.75rem',
+                            color: 'var(--success)',
+                            textAlign: 'center',
+                            fontWeight: 600
+                        }}>
+                            ✓ Remaining balance after payment: {getCurrencySymbol()}{(walletBalance - getPrice()).toFixed(2)}
+                        </p>
+                    )}
+
                     <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center', lineHeight: '1.4' }}>
-                        By clicking "Confirm & Pay", you agree to fund your Wallet Balance for monthly deliveries. You can pause or skip weeks anytime from your dashboard.
+                        By confirming, you agree to fund periodic deliveries. You can pause or skip weeks anytime from your dashboard.
                     </p>
                 </aside>
             </div>

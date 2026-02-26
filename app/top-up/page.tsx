@@ -48,11 +48,8 @@ export default function TopUpPage() {
 
             const data = await res.json();
             if (data.success) {
-                // In production: window.location.href = data.checkoutUrl;
-                // For now, simulate success
                 if (user) {
-                    const newBalance = (user.walletBalance || 0) + Number(amount);
-                    user.walletBalance = newBalance;
+                    user.walletBalance = data.newBalance;
                     localStorage.setItem('meatlink_user', JSON.stringify(user));
                 }
                 setSuccess(true);
