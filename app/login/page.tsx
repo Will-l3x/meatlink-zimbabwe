@@ -32,9 +32,12 @@ export default function LoginPage() {
                     name: data.user.name,
                     email: data.user.email,
                     role: data.user.role,
-                    walletBalance: data.user.walletBalance
+                    walletBalance: data.user.walletBalance,
+                    walletUSD: data.user.walletUSD || 0,
+                    walletZAR: data.user.walletZAR || 0,
+                    walletGBP: data.user.walletGBP || 0
                 }));
-                router.push('/dashboard');
+                router.push(data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
             } else {
                 setError(data.error || 'Invalid email or password.');
             }
