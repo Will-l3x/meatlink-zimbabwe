@@ -50,14 +50,14 @@ export default function DashboardPage() {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
 
-        // Load saved recipients
-        const savedRecipients = localStorage.getItem('meatlink_recipients');
+        // Load saved recipients (scoped to this user)
+        const savedRecipients = localStorage.getItem(`meatlink_recipients_${parsed.id}`);
         if (savedRecipients) {
             setRecipients(JSON.parse(savedRecipients));
         }
 
-        // Load delivery history
-        const savedDeliveries = localStorage.getItem('meatlink_deliveries');
+        // Load delivery history (scoped to this user)
+        const savedDeliveries = localStorage.getItem(`meatlink_deliveries_${parsed.id}`);
         if (savedDeliveries) {
             setDeliveries(JSON.parse(savedDeliveries));
         }
@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
         const updated = [...recipients, recipient];
         setRecipients(updated);
-        localStorage.setItem('meatlink_recipients', JSON.stringify(updated));
+        localStorage.setItem(`meatlink_recipients_${user?.id}`, JSON.stringify(updated));
         setNewRecipient({ name: '', whatsapp: '', address: '', suburb: '' });
         setShowAddRecipient(false);
     };
@@ -84,7 +84,7 @@ export default function DashboardPage() {
     const handleRemoveRecipient = (id: string) => {
         const updated = recipients.filter(r => r.id !== id);
         setRecipients(updated);
-        localStorage.setItem('meatlink_recipients', JSON.stringify(updated));
+        localStorage.setItem(`meatlink_recipients_${user?.id}`, JSON.stringify(updated));
     };
 
     if (loading) {

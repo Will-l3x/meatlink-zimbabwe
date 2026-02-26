@@ -35,13 +35,14 @@ function CheckoutContent() {
 
     // Load saved recipients and wallet balance
     React.useEffect(() => {
-        const saved = localStorage.getItem('meatlink_recipients');
-        if (saved) setSavedRecipients(JSON.parse(saved));
-
         const storedUser = localStorage.getItem('meatlink_user');
         if (storedUser) {
             const user = JSON.parse(storedUser);
             setWalletBalance(user.walletBalance || 0);
+
+            // Load recipients specific to this user
+            const saved = localStorage.getItem(`meatlink_recipients_${user.id}`);
+            if (saved) setSavedRecipients(JSON.parse(saved));
         }
     }, []);
 
@@ -127,7 +128,7 @@ function CheckoutContent() {
                 }
 
                 // Save delivery to localStorage for dashboard feed
-                const deliveries = JSON.parse(localStorage.getItem('meatlink_deliveries') || '[]');
+                const deliveries = JSON.parse(localStorage.getItem(`meatlink_deliveries_${user.id}`) || '[]');
                 deliveries.unshift({
                     id: data.subscriptionId,
                     recipientName: formData.recipientName,
@@ -136,7 +137,7 @@ function CheckoutContent() {
                     status: 'Scheduled',
                     pack: pack.title
                 });
-                localStorage.setItem('meatlink_deliveries', JSON.stringify(deliveries));
+                localStorage.setItem(`meatlink_deliveries_${user.id}`, JSON.stringify(deliveries));
 
                 router.push(`/checkout/success?subId=${data.subscriptionId}`);
             } else {
