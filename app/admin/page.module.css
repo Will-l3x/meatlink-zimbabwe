@@ -745,16 +745,30 @@
         white-space: nowrap;
     }
 
-    /* Kanban: horizontal scroll on mobile */
+    /* Kanban: vertical stack on mobile */
     .kanbanBoard {
-        grid-template-columns: repeat(4, 280px);
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 0.5rem;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1rem !important;
+        grid-template-columns: none !important;
+        min-height: auto !important;
+    }
+
+    .kanbanColumn {
+        width: 100%;
     }
 
     .kanbanCards {
-        max-height: 400px;
+        max-height: 300px;
+    }
+
+    .orderCard {
+        padding: 0.75rem;
+    }
+
+    .orderActions button {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.72rem;
     }
 
     .orderCounts {
