@@ -75,16 +75,39 @@ function CheckoutContent() {
         }
     };
 
-    const getPrice = () => {
+    const getFrequencyMultiplier = () => {
+        if (formData.frequency === 'BI_WEEKLY') return 2;
+        if (formData.frequency === 'MONTHLY') return 4;
+        return 1; // WEEKLY
+    };
+
+    const getFrequencyLabel = () => {
+        if (formData.frequency === 'BI_WEEKLY') return '2kg';
+        if (formData.frequency === 'MONTHLY') return '4kg';
+        return '1kg';
+    };
+
+    const getBasePrice = () => {
         if (currency === 'zar') return pack.zar;
         if (currency === 'gbp') return pack.gbp;
         return pack.usd;
     };
 
+    const getPrice = () => {
+        return getBasePrice() * getFrequencyMultiplier();
+    };
+
     const getPriceLabel = () => {
-        if (currency === 'zar') return `R${pack.zar}`;
-        if (currency === 'gbp') return `£${pack.gbp}`;
-        return `$${pack.usd}`;
+        const total = getPrice();
+        if (currency === 'zar') return `R${total.toFixed(2)}`;
+        if (currency === 'gbp') return `£${total.toFixed(2)}`;
+        return `$${total.toFixed(2)}`;
+    };
+
+    const getBasePriceLabel = () => {
+        if (currency === 'zar') return `R${pack.zar.toFixed(2)}`;
+        if (currency === 'gbp') return `£${pack.gbp.toFixed(2)}`;
+        return `$${pack.usd.toFixed(2)}`;
     };
 
     const getCurrencySymbol = () => {
@@ -358,8 +381,16 @@ function CheckoutContent() {
                     </div>
 
                     <div className={styles.summaryItem}>
-                        <span>Selected Pack</span>
+                        <span>Selected Cut</span>
                         <span>{pack.title}</span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                        <span>Price per kg</span>
+                        <span>{getBasePriceLabel()}/kg</span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                        <span>Quantity</span>
+                        <span>{getFrequencyLabel()} ({formData.frequency === 'WEEKLY' ? 'Weekly' : formData.frequency === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly'})</span>
                     </div>
                     <div className={styles.summaryItem}>
                         <span>First Delivery</span>
