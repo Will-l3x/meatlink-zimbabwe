@@ -5,11 +5,23 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 
-const HAMPERS = {
-    'gogo-pack': { title: 'The Gogo Pack', usd: 45, zar: 850, gbp: 35 },
-    'family-pack': { title: 'The Family Feast', usd: 85, zar: 1600, gbp: 65 },
-    'braai-pack': { title: 'Harare Braai Master', usd: 120, zar: 2200, gbp: 95 },
-    'monthly-saver': { title: 'Monthly Saver', usd: 180, zar: 3350, gbp: 140 },
+const HAMPERS: Record<string, { title: string; usd: number; zar: number; gbp: number }> = {
+    'pork-chops': { title: 'Pork Chops', usd: 5.45, zar: 101, gbp: 4.30 },
+    'pork-trotters': { title: 'Pork Trotters', usd: 3.75, zar: 69, gbp: 2.96 },
+    'pork-shoulder': { title: 'Pork Shoulder', usd: 5.00, zar: 93, gbp: 3.95 },
+    'pork-belly': { title: 'Pork Belly', usd: 6.00, zar: 111, gbp: 4.74 },
+    'pork-ribs': { title: 'Pork Ribs', usd: 5.00, zar: 93, gbp: 3.95 },
+    't-bone-steak': { title: 'T-Bone Steak', usd: 7.20, zar: 133, gbp: 5.69 },
+    'blade': { title: 'Blade', usd: 6.55, zar: 121, gbp: 5.17 },
+    'brisket': { title: 'Brisket', usd: 6.00, zar: 111, gbp: 4.74 },
+    'full-chicken': { title: 'Full Chicken', usd: 6.89, zar: 127, gbp: 5.44 },
+    'chicken-breast': { title: 'Chicken Breast', usd: 4.62, zar: 85, gbp: 3.65 },
+    'mixed-portions': { title: 'Mixed Portions', usd: 5.00, zar: 93, gbp: 3.95 },
+    'oxtail': { title: 'Oxtail', usd: 12.86, zar: 238, gbp: 10.16 },
+    'beef-short-ribs': { title: 'Beef Short Ribs', usd: 6.00, zar: 111, gbp: 4.74 },
+    'beef-trotters': { title: 'Beef Trotters', usd: 4.50, zar: 83, gbp: 3.56 },
+    'liver': { title: 'Liver', usd: 7.50, zar: 139, gbp: 5.93 },
+    'goat-meat': { title: 'Goat Meat', usd: 6.92, zar: 128, gbp: 5.47 },
 };
 
 type PaymentMethod = 'wallet' | 'stripe' | 'eft';
@@ -17,8 +29,8 @@ type PaymentMethod = 'wallet' | 'stripe' | 'eft';
 function CheckoutContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const packId = searchParams.get('pack') || 'gogo-pack';
-    const pack = HAMPERS[packId as keyof typeof HAMPERS] || HAMPERS['gogo-pack'];
+    const packId = searchParams.get('pack') || 'pork-chops';
+    const pack = HAMPERS[packId] || HAMPERS['pork-chops'];
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
