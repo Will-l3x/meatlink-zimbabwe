@@ -5,32 +5,30 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 
-const HAMPERS: Record<string, { title: string; usd: number; zar: number; gbp: number }> = {
-    'pork-chops': { title: 'Pork Chops', usd: 5.45, zar: 101, gbp: 4.30 },
-    'pork-trotters': { title: 'Pork Trotters', usd: 3.75, zar: 69, gbp: 2.96 },
-    'pork-shoulder': { title: 'Pork Shoulder', usd: 5.00, zar: 93, gbp: 3.95 },
-    'pork-belly': { title: 'Pork Belly', usd: 6.00, zar: 111, gbp: 4.74 },
-    'pork-ribs': { title: 'Pork Ribs', usd: 5.00, zar: 93, gbp: 3.95 },
-    't-bone-steak': { title: 'T-Bone Steak', usd: 7.20, zar: 133, gbp: 5.69 },
-    'blade': { title: 'Blade', usd: 6.55, zar: 121, gbp: 5.17 },
-    'brisket': { title: 'Brisket', usd: 6.00, zar: 111, gbp: 4.74 },
-    'full-chicken': { title: 'Full Chicken', usd: 6.89, zar: 127, gbp: 5.44 },
-    'chicken-breast': { title: 'Chicken Breast', usd: 4.62, zar: 85, gbp: 3.65 },
-    'mixed-portions': { title: 'Mixed Portions', usd: 5.00, zar: 93, gbp: 3.95 },
-    'oxtail': { title: 'Oxtail', usd: 12.86, zar: 238, gbp: 10.16 },
-    'beef-short-ribs': { title: 'Beef Short Ribs', usd: 6.00, zar: 111, gbp: 4.74 },
-    'beef-trotters': { title: 'Beef Trotters', usd: 4.50, zar: 83, gbp: 3.56 },
-    'liver': { title: 'Liver', usd: 7.50, zar: 139, gbp: 5.93 },
-    'goat-meat': { title: 'Goat Meat', usd: 6.92, zar: 128, gbp: 5.47 },
-};
+interface CartItem {
+    id: string;
+    title: string;
+    kg: number;
+    pricing: { usd: number; zar: number; gbp: number };
+}
 
 type PaymentMethod = 'wallet' | 'stripe' | 'eft';
 
 function CheckoutContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const packId = searchParams.get('pack') || 'pork-chops';
-    const pack = HAMPERS[packId] || HAMPERS['pork-chops'];
+
+    // Load cart from localStorage (set by shop page)
+    const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('hexad_cart');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.length > 0) return parsed;
+            }
+        }
+        return [];
+    });
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
@@ -56,11 +54,46 @@ function CheckoutContent() {
                 gbp: user.walletGBP || 0
             });
 
-            // Load recipients specific to this user
             const saved = localStorage.getItem(`hexad_recipients_${user.id}`);
             if (saved) setSavedRecipients(JSON.parse(saved));
         }
     }, []);
+
+    const getCurrencySymbol = () => {
+        if (currency === 'zar') return 'R';
+        if (currency === 'gbp') return '£';
+        return '$';
+    };
+
+    const getItemPrice = (item: CartItem) => {
+        const pricePerKg = currency === 'zar' ? item.pricing.zar : currency === 'gbp' ? item.pricing.gbp : item.pricing.usd;
+        return pricePerKg * item.kg;
+    };
+
+    const getCartTotal = () => {
+        return cartItems.reduce((sum, item) => sum + getItemPrice(item), 0);
+    };
+
+    const getTotalKg = () => {
+        return cartItems.reduce((sum, item) => sum + item.kg, 0);
+    };
+
+    const getTotalLabel = () => {
+        const total = getCartTotal();
+        return `${getCurrencySymbol()}${total.toFixed(2)}`;
+    };
+
+    const removeItem = (id: string) => {
+        const updated = cartItems.filter(item => item.id !== id);
+        setCartItems(updated);
+        localStorage.setItem('hexad_cart', JSON.stringify(updated));
+    };
+
+    const updateItemKg = (id: string, kg: number) => {
+        const updated = cartItems.map(item => item.id === id ? { ...item, kg } : item);
+        setCartItems(updated);
+        localStorage.setItem('hexad_cart', JSON.stringify(updated));
+    };
 
     const selectSavedRecipient = (id: string) => {
         const r = savedRecipients.find(r => r.id === id);
@@ -75,49 +108,13 @@ function CheckoutContent() {
         }
     };
 
-    const getFrequencyMultiplier = () => {
-        if (formData.frequency === 'BI_WEEKLY') return 2;
-        if (formData.frequency === 'MONTHLY') return 4;
-        return 1; // WEEKLY
-    };
-
-    const getFrequencyLabel = () => {
-        if (formData.frequency === 'BI_WEEKLY') return '2kg';
-        if (formData.frequency === 'MONTHLY') return '4kg';
-        return '1kg';
-    };
-
-    const getBasePrice = () => {
-        if (currency === 'zar') return pack.zar;
-        if (currency === 'gbp') return pack.gbp;
-        return pack.usd;
-    };
-
-    const getPrice = () => {
-        return getBasePrice() * getFrequencyMultiplier();
-    };
-
-    const getPriceLabel = () => {
-        const total = getPrice();
-        if (currency === 'zar') return `R${total.toFixed(2)}`;
-        if (currency === 'gbp') return `£${total.toFixed(2)}`;
-        return `$${total.toFixed(2)}`;
-    };
-
-    const getBasePriceLabel = () => {
-        if (currency === 'zar') return `R${pack.zar.toFixed(2)}`;
-        if (currency === 'gbp') return `£${pack.gbp.toFixed(2)}`;
-        return `$${pack.usd.toFixed(2)}`;
-    };
-
-    const getCurrencySymbol = () => {
-        if (currency === 'zar') return 'R';
-        if (currency === 'gbp') return '£';
-        return '$';
-    };
-
     const handleConfirm = async () => {
-        // Validate form
+        if (cartItems.length === 0) {
+            alert('Your cart is empty. Please add items from the shop.');
+            router.push('/shop');
+            return;
+        }
+
         if (!formData.recipientName || !formData.recipientWhatsApp || !formData.recipientAddress || !formData.recipientSuburb) {
             alert('Please fill in all recipient details.');
             return;
@@ -131,13 +128,12 @@ function CheckoutContent() {
         }
 
         const user = JSON.parse(storedUser);
-        const price = getPrice();
+        const totalPrice = getCartTotal();
 
-        // Wallet payment: check balance for the selected currency
         if (paymentMethod === 'wallet') {
             const currBal = currency === 'zar' ? (user.walletZAR || 0) : currency === 'gbp' ? (user.walletGBP || 0) : (user.walletUSD || 0);
-            if (currBal < price) {
-                alert(`Insufficient ${currency.toUpperCase()} wallet balance. You have ${getCurrencySymbol()}${currBal.toFixed(2)} but need ${getPriceLabel()}. Please top up your wallet first.`);
+            if (currBal < totalPrice) {
+                alert(`Insufficient ${currency.toUpperCase()} wallet balance. You have ${getCurrencySymbol()}${currBal.toFixed(2)} but need ${getTotalLabel()}. Please top up your wallet first.`);
                 return;
             }
         }
@@ -145,6 +141,8 @@ function CheckoutContent() {
         setLoading(true);
 
         try {
+            // Create a subscription for the combined cart order
+            const cartDescription = cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ');
             const res = await fetch('/api/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -152,8 +150,9 @@ function CheckoutContent() {
                     ...formData,
                     senderId: user.id,
                     senderName: user.name,
-                    hamperId: packId,
-                    amount: price,
+                    hamperId: cartItems.map(i => i.id).join('+'),
+                    hamperName: cartDescription,
+                    amount: totalPrice,
                     currency: currency.toUpperCase(),
                     paymentMethod
                 })
@@ -161,14 +160,12 @@ function CheckoutContent() {
 
             const data = await res.json();
             if (data.success) {
-                // Wallet payment: deduct from the correct currency balance
                 if (paymentMethod === 'wallet') {
                     const walletKey = currency === 'zar' ? 'walletZAR' : currency === 'gbp' ? 'walletGBP' : 'walletUSD';
-                    user[walletKey] = (user[walletKey] || 0) - price;
+                    user[walletKey] = (user[walletKey] || 0) - totalPrice;
                     localStorage.setItem('hexad_user', JSON.stringify(user));
                 }
 
-                // Save delivery to localStorage for dashboard feed
                 const deliveries = JSON.parse(localStorage.getItem(`hexad_deliveries_${user.id}`) || '[]');
                 deliveries.unshift({
                     id: data.subscriptionId,
@@ -176,9 +173,12 @@ function CheckoutContent() {
                     date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
                     location: `${formData.recipientSuburb}, Harare`,
                     status: 'Scheduled',
-                    pack: pack.title
+                    pack: cartDescription
                 });
                 localStorage.setItem(`hexad_deliveries_${user.id}`, JSON.stringify(deliveries));
+
+                // Clear cart
+                localStorage.removeItem('hexad_cart');
 
                 router.push(`/checkout/success?subId=${data.subscriptionId}`);
             } else {
@@ -193,87 +193,127 @@ function CheckoutContent() {
     };
 
     const currentWalletBalance = walletBalances[currency];
-    const hasEnoughBalance = currentWalletBalance >= getPrice();
+    const hasEnoughBalance = currentWalletBalance >= getCartTotal();
+
+    if (cartItems.length === 0) {
+        return (
+            <div className={styles.container}>
+                <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                    <h2 style={{ marginBottom: '1rem' }}>🛒 Your cart is empty</h2>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Add some premium cuts from the shop first.</p>
+                    <Button href="/shop">Browse Premium Cuts</Button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.container}>
             <header className={styles.header}>
                 <h1>Checkout</h1>
-                <p>Complete your subscription and feed your loved ones.</p>
+                <p>Complete your order — {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}, {getTotalKg()}kg total</p>
             </header>
 
-            <div className={styles.grid}>
-                <div className={styles.main}>
+            <div className={styles.layout}>
+                <div className={styles.formSide}>
+                    {/* Cart Items */}
+                    <div className={styles.section}>
+                        <h2>Your Cart</h2>
+                        <div className={styles.cartItemsList}>
+                            {cartItems.map(item => (
+                                <div key={item.id} className={styles.cartRow}>
+                                    <div className={styles.cartRowInfo}>
+                                        <span className={styles.cartRowTitle}>{item.title}</span>
+                                        <span className={styles.cartRowPrice}>
+                                            {getCurrencySymbol()}{(currency === 'zar' ? item.pricing.zar : currency === 'gbp' ? item.pricing.gbp : item.pricing.usd).toFixed(2)}/kg
+                                        </span>
+                                    </div>
+                                    <div className={styles.cartRowControls}>
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="10"
+                                            value={item.kg}
+                                            onChange={(e) => updateItemKg(item.id, Number(e.target.value))}
+                                            className={styles.miniSlider}
+                                        />
+                                        <span className={styles.cartRowKg}>{item.kg}kg</span>
+                                        <span className={styles.cartRowTotal}>
+                                            {getCurrencySymbol()}{getItemPrice(item).toFixed(2)}
+                                        </span>
+                                        <button className={styles.cartRemoveBtn} onClick={() => removeItem(item.id)}>✕</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button className={styles.addMoreBtn} onClick={() => router.push('/shop')}>
+                            + Add More Items
+                        </button>
+                    </div>
+
+                    {/* Recipient Details */}
                     <div className={styles.section}>
                         <h2>1. Recipient Details</h2>
 
                         {savedRecipients.length > 0 && (
-                            <div className={styles.formGroup}>
-                                <label>Saved Recipients</label>
-                                <select
-                                    onChange={(e) => selectSavedRecipient(e.target.value)}
-                                    defaultValue=""
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid var(--card-border)',
-                                        background: 'var(--background)',
-                                        fontFamily: 'inherit',
-                                        fontSize: '0.9rem',
-                                        color: 'var(--text)',
-                                        cursor: 'pointer',
-                                        marginBottom: '0.5rem'
-                                    }}
-                                >
-                                    <option value="" disabled>Select a saved recipient...</option>
+                            <div className={styles.savedRecipients}>
+                                <label>Quick Select:</label>
+                                <div className={styles.recipientList}>
                                     {savedRecipients.map(r => (
-                                        <option key={r.id} value={r.id}>
-                                            {r.name} — {r.suburb}, Harare
-                                        </option>
+                                        <button
+                                            key={r.id}
+                                            className={styles.recipientChip}
+                                            onClick={() => selectSavedRecipient(r.id)}
+                                        >
+                                            {r.name}
+                                        </button>
                                     ))}
-                                </select>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                                    Or fill in details manually below
-                                </p>
+                                </div>
                             </div>
                         )}
 
                         <div className={styles.formGroup}>
-                            <label>Recipient Name (Harare)</label>
+                            <label>Recipient Name</label>
                             <input
-                                type="text"
-                                placeholder="e.g. Mrs. Moyo"
                                 value={formData.recipientName}
                                 onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
+                                placeholder="e.g. Gogo Mukoko"
                             />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>Recipient WhatsApp Number</label>
+                            <label>WhatsApp Number</label>
                             <input
-                                type="text"
-                                placeholder="+263 7..."
                                 value={formData.recipientWhatsApp}
                                 onChange={(e) => setFormData({ ...formData, recipientWhatsApp: e.target.value })}
+                                placeholder="+263 7XX XXX XXX"
                             />
                         </div>
                         <div className={styles.formGroup}>
                             <label>Delivery Address</label>
-                            <textarea
-                                rows={3}
-                                placeholder="House number, Street, Suburb (Harare)"
+                            <input
                                 value={formData.recipientAddress}
                                 onChange={(e) => setFormData({ ...formData, recipientAddress: e.target.value })}
+                                placeholder="123 Main Street"
                             />
                         </div>
                         <div className={styles.formGroup}>
                             <label>Suburb</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Mabelreign"
+                            <select
                                 value={formData.recipientSuburb}
                                 onChange={(e) => setFormData({ ...formData, recipientSuburb: e.target.value })}
-                            />
+                            >
+                                <option value="">Select suburb...</option>
+                                <option value="Avondale">Avondale</option>
+                                <option value="Borrowdale">Borrowdale</option>
+                                <option value="Glen Lorne">Glen Lorne</option>
+                                <option value="Greendale">Greendale</option>
+                                <option value="Highlands">Highlands</option>
+                                <option value="Mabelreign">Mabelreign</option>
+                                <option value="Mbare">Mbare</option>
+                                <option value="Mount Pleasant">Mount Pleasant</option>
+                                <option value="Waterfalls">Waterfalls</option>
+                                <option value="Westgate">Westgate</option>
+                            </select>
                         </div>
                     </div>
 
@@ -285,7 +325,7 @@ function CheckoutContent() {
                                 value={formData.frequency}
                                 onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
                             >
-                                <option value="WEEKLY">Every Week (Recommended for power cuts)</option>
+                                <option value="WEEKLY">Every Week</option>
                                 <option value="BI_WEEKLY">Every 2 Weeks</option>
                                 <option value="MONTHLY">Every Month</option>
                             </select>
@@ -296,7 +336,6 @@ function CheckoutContent() {
                         <h2>3. Payment Method</h2>
 
                         <div className={styles.paymentMethods}>
-                            {/* Wallet Option */}
                             <button
                                 className={`${styles.paymentOption} ${paymentMethod === 'wallet' ? styles.paymentOptionActive : ''}`}
                                 onClick={() => setPaymentMethod('wallet')}
@@ -314,7 +353,6 @@ function CheckoutContent() {
                                 <div className={`${styles.paymentRadio} ${paymentMethod === 'wallet' ? styles.paymentRadioActive : ''}`} />
                             </button>
 
-                            {/* Stripe Option */}
                             <button
                                 className={`${styles.paymentOption} ${paymentMethod === 'stripe' ? styles.paymentOptionActive : ''}`}
                                 onClick={() => setPaymentMethod('stripe')}
@@ -327,7 +365,6 @@ function CheckoutContent() {
                                 <div className={`${styles.paymentRadio} ${paymentMethod === 'stripe' ? styles.paymentRadioActive : ''}`} />
                             </button>
 
-                            {/* EFT Option */}
                             <button
                                 className={`${styles.paymentOption} ${paymentMethod === 'eft' ? styles.paymentOptionActive : ''}`}
                                 onClick={() => setPaymentMethod('eft')}
@@ -355,7 +392,7 @@ function CheckoutContent() {
                                 <span style={{ fontSize: '1.2rem' }}>⚠️</span>
                                 <div>
                                     <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--error)' }}>
-                                        You need {getPriceLabel()} but only have {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
+                                        You need {getTotalLabel()} but only have {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
                                     </p>
                                     <a href="/top-up" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
                                         Top up your wallet →
@@ -380,17 +417,16 @@ function CheckoutContent() {
                         ))}
                     </div>
 
+                    {cartItems.map(item => (
+                        <div key={item.id} className={styles.summaryItem}>
+                            <span>{item.title} ({item.kg}kg)</span>
+                            <span>{getCurrencySymbol()}{getItemPrice(item).toFixed(2)}</span>
+                        </div>
+                    ))}
+
                     <div className={styles.summaryItem}>
-                        <span>Selected Cut</span>
-                        <span>{pack.title}</span>
-                    </div>
-                    <div className={styles.summaryItem}>
-                        <span>Price per kg</span>
-                        <span>{getBasePriceLabel()}/kg</span>
-                    </div>
-                    <div className={styles.summaryItem}>
-                        <span>Quantity</span>
-                        <span>{getFrequencyLabel()} ({formData.frequency === 'WEEKLY' ? 'Weekly' : formData.frequency === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly'})</span>
+                        <span>Delivery</span>
+                        <span>{formData.frequency === 'WEEKLY' ? 'Weekly' : formData.frequency === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly'}</span>
                     </div>
                     <div className={styles.summaryItem}>
                         <span>First Delivery</span>
@@ -406,8 +442,8 @@ function CheckoutContent() {
                     </div>
 
                     <div className={styles.total}>
-                        <span>{formData.frequency === 'WEEKLY' ? 'Weekly' : formData.frequency === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly'} Total</span>
-                        <span>{getPriceLabel()}</span>
+                        <span>Total ({getTotalKg()}kg)</span>
+                        <span>{getTotalLabel()}</span>
                     </div>
 
                     <Button
@@ -418,9 +454,9 @@ function CheckoutContent() {
                         {loading
                             ? 'Processing...'
                             : paymentMethod === 'wallet'
-                                ? `Pay ${getPriceLabel()} from Wallet`
+                                ? `Pay ${getTotalLabel()} from Wallet`
                                 : paymentMethod === 'stripe'
-                                    ? `Pay ${getPriceLabel()} with Card`
+                                    ? `Pay ${getTotalLabel()} with Card`
                                     : 'Confirm & Upload Proof'
                         }
                     </Button>
@@ -429,17 +465,12 @@ function CheckoutContent() {
                         <p style={{
                             marginTop: '0.75rem',
                             fontSize: '0.75rem',
-                            color: 'var(--success)',
-                            textAlign: 'center',
-                            fontWeight: 600
+                            color: 'var(--text-muted)',
+                            textAlign: 'center'
                         }}>
-                            ✓ Remaining balance after payment: {getCurrencySymbol()}{(currentWalletBalance - getPrice()).toFixed(2)}
+                            Remaining balance: {getCurrencySymbol()}{(currentWalletBalance - getCartTotal()).toFixed(2)}
                         </p>
                     )}
-
-                    <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center', lineHeight: '1.4' }}>
-                        By confirming, you agree to fund periodic deliveries. You can pause or skip weeks anytime from your dashboard.
-                    </p>
                 </aside>
             </div>
         </div>
@@ -448,7 +479,11 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
     return (
-        <Suspense fallback={<div className={styles.container}>Loading Checkout...</div>}>
+        <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 2rem' }}>
+                <p>Loading checkout...</p>
+            </div>
+        }>
             <CheckoutContent />
         </Suspense>
     );

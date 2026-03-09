@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './HamperCard.module.css';
-import Button from '@/components/ui/Button';
 
 interface Pricing {
     usd: number;
@@ -15,6 +14,8 @@ interface HamperCardProps {
     pricing: Pricing;
     tag?: string;
     image?: string;
+    onAddToCart?: (id: string, title: string, kg: number, pricing: Pricing) => void;
+    cartQty?: number;
 }
 
 export default function HamperCard({
@@ -23,8 +24,16 @@ export default function HamperCard({
     description,
     pricing,
     tag = "Hamper",
-    image
+    image,
+    onAddToCart,
+    cartQty = 0
 }: HamperCardProps) {
+    const [kg, setKg] = useState(1);
+
+    const handleAdd = () => {
+        if (onAddToCart) onAddToCart(id, title, kg, pricing);
+    };
+
     return (
         <div className={styles.card}>
             <div className={styles.imagePlaceholder}>
@@ -39,6 +48,11 @@ export default function HamperCard({
                         [Img: {title}]
                     </span>
                 )}
+                {cartQty > 0 && (
+                    <div className={styles.cartBadge}>
+                        {cartQty}kg in cart
+                    </div>
+                )}
             </div>
 
             <div className={styles.content}>
@@ -48,22 +62,43 @@ export default function HamperCard({
 
                 <div className={styles.pricing}>
                     <div className={styles.priceItem}>
-                        <span className={styles.currency}>USD</span>
-                        <span className={`${styles.amount} ${styles.amountMain}`}>${pricing.usd}</span>
+                        <span className={styles.currency}>USD/kg</span>
+                        <span className={`${styles.amount} ${styles.amountMain}`}>${pricing.usd.toFixed(2)}</span>
                     </div>
                     <div className={styles.priceItem}>
-                        <span className={styles.currency}>ZAR</span>
+                        <span className={styles.currency}>ZAR/kg</span>
                         <span className={styles.amount}>R{pricing.zar}</span>
                     </div>
                     <div className={styles.priceItem}>
-                        <span className={styles.currency}>GBP</span>
-                        <span className={styles.amount}>£{pricing.gbp}</span>
+                        <span className={styles.currency}>GBP/kg</span>
+                        <span className={styles.amount}>£{pricing.gbp.toFixed(2)}</span>
                     </div>
                 </div>
 
-                <Button fullWidth href={`/checkout?pack=${id}`}>
-                    Select Pack
-                </Button>
+                {/* Kg Slider */}
+                <div className={styles.sliderSection}>
+                    <div className={styles.sliderHeader}>
+                        <span className={styles.kgLabel}>{kg}kg</span>
+                        <span className={styles.kgPrice}>${(pricing.usd * kg).toFixed(2)}</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={kg}
+                        onChange={(e) => setKg(Number(e.target.value))}
+                        className={styles.slider}
+                    />
+                    <div className={styles.sliderLabels}>
+                        <span>1kg</span>
+                        <span>5kg</span>
+                        <span>10kg</span>
+                    </div>
+                </div>
+
+                <button className={styles.addBtn} onClick={handleAdd}>
+                    🛒 Add {kg}kg — ${(pricing.usd * kg).toFixed(2)}
+                </button>
             </div>
         </div>
     );

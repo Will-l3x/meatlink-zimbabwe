@@ -26,6 +26,19 @@
     font-weight: 700;
 }
 
+.cartBadge {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: var(--primary);
+    color: #fff;
+    padding: 0.3rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 .content {
     padding: 1.5rem;
     flex-grow: 1;
@@ -51,7 +64,7 @@
 .description {
     font-size: 0.9rem;
     color: var(--text-muted);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
     line-height: 1.5;
     flex-grow: 1;
 }
@@ -60,8 +73,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.85rem 1rem;
     background: var(--secondary-light);
     border-radius: 10px;
 }
@@ -72,19 +85,108 @@
 }
 
 .currency {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-light);
 }
 
 .amount {
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     color: var(--foreground);
 }
 
 .amountMain {
     color: var(--primary);
-    font-size: 1.2rem;
+    font-size: 1.15rem;
+}
+
+/* Kg Slider */
+.sliderSection {
+    margin-bottom: 1rem;
+}
+
+.sliderHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+}
+
+.kgLabel {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--foreground);
+}
+
+.kgPrice {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+}
+
+.sliderLabels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.addBtn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.addBtn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {

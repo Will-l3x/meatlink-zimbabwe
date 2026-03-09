@@ -1,9 +1,17 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import HamperCard from '@/components/shop/HamperCard';
 import Button from '@/components/ui/Button';
+
+interface CartItem {
+    id: string;
+    title: string;
+    kg: number;
+    pricing: { usd: number; zar: number; gbp: number };
+}
 
 const MEAT_CUTS = [
     {
@@ -155,7 +163,47 @@ const MEAT_CUTS = [
 type FilterType = 'all' | 'pork' | 'beef' | 'poultry' | 'premium' | 'specialty';
 
 export default function ShopPage() {
+    const router = useRouter();
     const [filter, setFilter] = useState<FilterType>('all');
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [addedMessage, setAddedMessage] = useState('');
+
+    // Load cart from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('hexad_cart');
+        if (saved) setCart(JSON.parse(saved));
+    }, []);
+
+    // Save cart to localStorage
+    useEffect(() => {
+        localStorage.setItem('hexad_cart', JSON.stringify(cart));
+    }, [cart]);
+
+    const addToCart = (id: string, title: string, kg: number, pricing: { usd: number; zar: number; gbp: number }) => {
+        setCart(prev => {
+            const existing = prev.find(item => item.id === id);
+            if (existing) {
+                return prev.map(item =>
+                    item.id === id ? { ...item, kg: item.kg + kg } : item
+                );
+            }
+            return [...prev, { id, title, kg, pricing }];
+        });
+        setAddedMessage(`✅ ${kg}kg ${title} added!`);
+        setTimeout(() => setAddedMessage(''), 2000);
+    };
+
+    const removeFromCart = (id: string) => {
+        setCart(prev => prev.filter(item => item.id !== id));
+    };
+
+    const getCartTotal = () => cart.reduce((sum, item) => sum + (item.pricing.usd * item.kg), 0);
+    const getCartKg = () => cart.reduce((sum, item) => sum + item.kg, 0);
+
+    const goToCheckout = () => {
+        localStorage.setItem('hexad_cart', JSON.stringify(cart));
+        router.push('/checkout');
+    };
 
     const filteredCuts = filter === 'all'
         ? MEAT_CUTS
@@ -165,8 +213,12 @@ export default function ShopPage() {
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1>Premium Cuts</h1>
-                <p>Fresh, quality meat delivered to your family in Harare. Prices per kg.</p>
+                <p>Fresh, quality meat delivered to your family in Harare. Pick your cuts, choose your kg.</p>
             </div>
+
+            {addedMessage && (
+                <div className={styles.addedToast}>{addedMessage}</div>
+            )}
 
             <div className={styles.filterBar}>
                 <Button variant={filter === 'all' ? 'primary' : 'secondary'} onClick={() => setFilter('all')}>
@@ -191,7 +243,12 @@ export default function ShopPage() {
 
             <div className={styles.grid}>
                 {filteredCuts.map(cut => (
-                    <HamperCard key={cut.id} {...cut} />
+                    <HamperCard
+                        key={cut.id}
+                        {...cut}
+                        onAddToCart={addToCart}
+                        cartQty={cart.find(c => c.id === cut.id)?.kg || 0}
+                    />
                 ))}
             </div>
 
@@ -203,6 +260,30 @@ export default function ShopPage() {
                     fontSize: '1.1rem'
                 }}>
                     No cuts available for this filter.
+                </div>
+            )}
+
+            {/* Floating Cart Bar */}
+            {cart.length > 0 && (
+                <div className={styles.cartBar}>
+                    <div className={styles.cartInfo}>
+                        <div className={styles.cartSummary}>
+                            <span className={styles.cartIcon}>🛒</span>
+                            <span className={styles.cartCount}>{cart.length} {cart.length === 1 ? 'item' : 'items'} · {getCartKg()}kg</span>
+                        </div>
+                        <span className={styles.cartTotal}>${getCartTotal().toFixed(2)}</span>
+                    </div>
+                    <div className={styles.cartItems}>
+                        {cart.map(item => (
+                            <div key={item.id} className={styles.cartItem}>
+                                <span>{item.title} ({item.kg}kg)</span>
+                                <button className={styles.removeBtn} onClick={() => removeFromCart(item.id)}>✕</button>
+                            </div>
+                        ))}
+                    </div>
+                    <button className={styles.checkoutBtn} onClick={goToCheckout}>
+                        Proceed to Checkout — ${getCartTotal().toFixed(2)}
+                    </button>
                 </div>
             )}
         </div>

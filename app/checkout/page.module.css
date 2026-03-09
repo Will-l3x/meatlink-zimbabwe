@@ -4,7 +4,7 @@
     padding: 4rem 2rem;
 }
 
-.grid {
+.layout {
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 3rem;
@@ -43,6 +43,131 @@
     color: var(--foreground);
 }
 
+/* Cart Items List */
+.cartItemsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.cartRow {
+    background: var(--background);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+}
+
+.cartRowInfo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.cartRowTitle {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--foreground);
+}
+
+.cartRowPrice {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.cartRowControls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.miniSlider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.miniSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+}
+
+.miniSlider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+}
+
+.cartRowKg {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--foreground);
+    min-width: 30px;
+    text-align: center;
+}
+
+.cartRowTotal {
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: var(--primary);
+    min-width: 55px;
+    text-align: right;
+}
+
+.cartRemoveBtn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.cartRemoveBtn:hover {
+    background: rgba(193, 41, 46, 0.1);
+    color: var(--error);
+}
+
+.addMoreBtn {
+    width: 100%;
+    padding: 0.7rem;
+    border: 2px dashed var(--border-light);
+    border-radius: 10px;
+    background: none;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.addMoreBtn:hover {
+    border-color: var(--primary);
+    background: rgba(196, 69, 54, 0.04);
+}
+
+/* Form */
 .formGroup {
     margin-bottom: 1.5rem;
 }
@@ -77,6 +202,44 @@
     box-shadow: 0 0 0 3px rgba(196, 69, 54, 0.08);
 }
 
+/* Saved Recipients */
+.savedRecipients {
+    margin-bottom: 1.5rem;
+}
+
+.savedRecipients label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.recipientList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.recipientChip {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border-light);
+    border-radius: 20px;
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.recipientChip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Summary */
 .summary {
     position: sticky;
     top: 100px;
@@ -130,6 +293,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
+    font-family: inherit;
 }
 
 .toggleBtnActive {
@@ -229,7 +393,7 @@
         font-size: 1.8rem;
     }
 
-    .grid {
+    .layout {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
@@ -257,5 +421,13 @@
     .formGroup select {
         padding: 0.8rem;
         font-size: 0.9rem;
+    }
+
+    .cartRowControls {
+        gap: 0.4rem;
+    }
+
+    .cartRowTotal {
+        font-size: 0.82rem;
     }
 }
