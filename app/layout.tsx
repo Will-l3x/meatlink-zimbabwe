@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MeatLink Zimbabwe",
+  title: "Hexad Market",
   description: "Send home the taste of love. Premium meat delivery service.",
 };
 

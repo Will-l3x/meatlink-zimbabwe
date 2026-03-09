@@ -106,7 +106,7 @@ export default function AdminPage() {
 
     useEffect(() => {
         // Check admin auth
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         if (!storedUser) {
             router.push('/login');
             return;
@@ -190,7 +190,7 @@ export default function AdminPage() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('meatlink_user');
+        localStorage.removeItem('hexad_user');
         router.push('/login');
     };
 
@@ -262,7 +262,7 @@ export default function AdminPage() {
                 <div className={styles.sidebarLogo}>
                     <span className={styles.logoIcon}>🥩</span>
                     <div>
-                        <div className={styles.logoTitle}>MeatLink</div>
+                        <div className={styles.logoTitle}>Hexad</div>
                         <div className={styles.logoSub}>Admin Panel</div>
                     </div>
                 </div>
@@ -296,7 +296,7 @@ export default function AdminPage() {
                         <header className={styles.pageHeader}>
                             <div>
                                 <h1>Command Center</h1>
-                                <p className={styles.subtitle}>Real-time overview of MeatLink operations</p>
+                                <p className={styles.subtitle}>Real-time overview of Hexad Market operations</p>
                             </div>
                             <button className={styles.refreshBtn} onClick={() => { setLoading(true); fetchData(); }}>
                                 🔄 Refresh

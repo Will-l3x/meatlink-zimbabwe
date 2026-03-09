@@ -44,7 +44,7 @@ export const whatsappService = {
                 return `Hi ${params.recipientName}! 🍗 Your meat pack from ${params.senderName} is arriving today between 10 AM and 12 PM. Please ensure someone is home to receive it. Please reply 'DELAY' if there is a power outage.`;
 
             case 'SENDER_PROOF_OF_LOVE':
-                return `Good news! Your family's weekly meat pack has been delivered to ${params.recipientName}. ✅ Here is a photo of the handover: ${params.photoUrl}. Thank you for using MeatLink Zimbabwe!`;
+                return `Good news! Your family's weekly meat pack has been delivered to ${params.recipientName}. ✅ Here is a photo of the handover: ${params.photoUrl}. Thank you for using Hexad Market!`;
 
             default:
                 return '';

@@ -9,7 +9,7 @@ export default function Footer() {
                 <div className={styles.grid}>
                     <div className={styles.brand}>
                         <Link href="/" className={styles.logo}>
-                            MeatLink <span>Zimbabwe</span>
+                            Hexad <span>Market</span>
                         </Link>
                         <p className={styles.tagline}>
                             Feeding families in Harare, powered by love from the Diaspora.
@@ -39,7 +39,7 @@ export default function Footer() {
                 </div>
 
                 <div className={styles.bottom}>
-                    <p>© {new Date().getFullYear()} MeatLink Zimbabwe. All rights reserved.</p>
+                    <p>© {new Date().getFullYear()} Hexad Market. All rights reserved.</p>
                     <p className={styles.location}>🇿🇼 Harare, Zimbabwe</p>
                 </div>
             </div>

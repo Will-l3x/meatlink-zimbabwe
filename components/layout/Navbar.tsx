@@ -13,14 +13,14 @@ export default function Navbar() {
 
     useEffect(() => {
         // Check for user in localStorage to simulate session
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
     }, [pathname]);
 
     const handleLogout = () => {
-        localStorage.removeItem('meatlink_user');
+        localStorage.removeItem('hexad_user');
         setUser(null);
         router.push('/');
     };
@@ -30,7 +30,7 @@ export default function Navbar() {
     return (
         <header className={styles.header}>
             <Link href="/" className={styles.logo}>
-                MeatLink <span>Zimbabwe</span>
+                Hexad <span>Market</span>
             </Link>
 
             <nav className={styles.nav}>

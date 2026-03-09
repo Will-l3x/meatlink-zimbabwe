@@ -45,7 +45,7 @@ export default function DashboardPage() {
     });
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         if (!storedUser) {
             router.push('/login');
             return;
@@ -54,13 +54,13 @@ export default function DashboardPage() {
         setUser(parsed);
 
         // Load saved recipients (scoped to this user)
-        const savedRecipients = localStorage.getItem(`meatlink_recipients_${parsed.id}`);
+        const savedRecipients = localStorage.getItem(`hexad_recipients_${parsed.id}`);
         if (savedRecipients) {
             setRecipients(JSON.parse(savedRecipients));
         }
 
         // Load delivery history (scoped to this user)
-        const savedDeliveries = localStorage.getItem(`meatlink_deliveries_${parsed.id}`);
+        const savedDeliveries = localStorage.getItem(`hexad_deliveries_${parsed.id}`);
         if (savedDeliveries) {
             setDeliveries(JSON.parse(savedDeliveries));
         }
@@ -79,7 +79,7 @@ export default function DashboardPage() {
 
         const updated = [...recipients, recipient];
         setRecipients(updated);
-        localStorage.setItem(`meatlink_recipients_${user?.id}`, JSON.stringify(updated));
+        localStorage.setItem(`hexad_recipients_${user?.id}`, JSON.stringify(updated));
         setNewRecipient({ name: '', whatsapp: '', address: '', suburb: '' });
         setShowAddRecipient(false);
     };
@@ -87,7 +87,7 @@ export default function DashboardPage() {
     const handleRemoveRecipient = (id: string) => {
         const updated = recipients.filter(r => r.id !== id);
         setRecipients(updated);
-        localStorage.setItem(`meatlink_recipients_${user?.id}`, JSON.stringify(updated));
+        localStorage.setItem(`hexad_recipients_${user?.id}`, JSON.stringify(updated));
     };
 
     if (loading) {

@@ -35,7 +35,7 @@ function CheckoutContent() {
 
     // Load saved recipients and wallet balance
     React.useEffect(() => {
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         if (storedUser) {
             const user = JSON.parse(storedUser);
             setWalletBalances({
@@ -45,7 +45,7 @@ function CheckoutContent() {
             });
 
             // Load recipients specific to this user
-            const saved = localStorage.getItem(`meatlink_recipients_${user.id}`);
+            const saved = localStorage.getItem(`hexad_recipients_${user.id}`);
             if (saved) setSavedRecipients(JSON.parse(saved));
         }
     }, []);
@@ -88,7 +88,7 @@ function CheckoutContent() {
             return;
         }
 
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         if (!storedUser) {
             alert('Please log in or register to place an order.');
             router.push('/login');
@@ -130,11 +130,11 @@ function CheckoutContent() {
                 if (paymentMethod === 'wallet') {
                     const walletKey = currency === 'zar' ? 'walletZAR' : currency === 'gbp' ? 'walletGBP' : 'walletUSD';
                     user[walletKey] = (user[walletKey] || 0) - price;
-                    localStorage.setItem('meatlink_user', JSON.stringify(user));
+                    localStorage.setItem('hexad_user', JSON.stringify(user));
                 }
 
                 // Save delivery to localStorage for dashboard feed
-                const deliveries = JSON.parse(localStorage.getItem(`meatlink_deliveries_${user.id}`) || '[]');
+                const deliveries = JSON.parse(localStorage.getItem(`hexad_deliveries_${user.id}`) || '[]');
                 deliveries.unshift({
                     id: data.subscriptionId,
                     recipientName: formData.recipientName,
@@ -143,7 +143,7 @@ function CheckoutContent() {
                     status: 'Scheduled',
                     pack: pack.title
                 });
-                localStorage.setItem(`meatlink_deliveries_${user.id}`, JSON.stringify(deliveries));
+                localStorage.setItem(`hexad_deliveries_${user.id}`, JSON.stringify(deliveries));
 
                 router.push(`/checkout/success?subId=${data.subscriptionId}`);
             } else {
@@ -268,7 +268,7 @@ function CheckoutContent() {
                             >
                                 <div className={styles.paymentIcon}>💰</div>
                                 <div className={styles.paymentInfo}>
-                                    <div className={styles.paymentLabel}>MeatLink Wallet</div>
+                                    <div className={styles.paymentLabel}>Hexad Wallet</div>
                                     <div className={styles.paymentDesc}>
                                         Balance: {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
                                         {!hasEnoughBalance && (

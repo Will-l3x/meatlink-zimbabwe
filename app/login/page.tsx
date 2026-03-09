@@ -27,7 +27,7 @@ export default function LoginPage() {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                localStorage.setItem('meatlink_user', JSON.stringify({
+                localStorage.setItem('hexad_user', JSON.stringify({
                     id: data.user.id,
                     name: data.user.name,
                     email: data.user.email,

@@ -32,7 +32,7 @@ export default function TopUpPage() {
         setProcessing(true);
 
         try {
-            const storedUser = localStorage.getItem('meatlink_user');
+            const storedUser = localStorage.getItem('hexad_user');
             const user = storedUser ? JSON.parse(storedUser) : null;
 
             const res = await fetch('/api/wallet', {
@@ -52,7 +52,7 @@ export default function TopUpPage() {
                     user.walletUSD = data.walletUSD;
                     user.walletZAR = data.walletZAR;
                     user.walletGBP = data.walletGBP;
-                    localStorage.setItem('meatlink_user', JSON.stringify(user));
+                    localStorage.setItem('hexad_user', JSON.stringify(user));
                 }
                 setSuccess(true);
             }
@@ -66,7 +66,7 @@ export default function TopUpPage() {
 
     const handleEftUpload = () => {
         if (!amount || amount <= 0) return;
-        const storedUser = localStorage.getItem('meatlink_user');
+        const storedUser = localStorage.getItem('hexad_user');
         const user = storedUser ? JSON.parse(storedUser) : null;
 
         // EFT is pending admin approval, so we don't update balance yet
@@ -211,7 +211,7 @@ export default function TopUpPage() {
                             </div>
                             <div className={styles.detailRow}>
                                 <span>Account Holder</span>
-                                <span>MeatLink Zimbabwe (Pty) Ltd</span>
+                                <span>Hexad Market (Pty) Ltd</span>
                             </div>
                             <div className={styles.detailRow}>
                                 <span>Account Number</span>
