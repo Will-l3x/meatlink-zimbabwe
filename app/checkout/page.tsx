@@ -12,7 +12,7 @@ interface CartItem {
     pricing: { usd: number; zar: number; gbp: number };
 }
 
-type PaymentMethod = 'wallet' | 'stripe' | 'eft';
+type PaymentMethod = 'wallet' | 'stripe' | 'eft' | 'zb_smilenpay';
 
 function CheckoutContent() {
     const searchParams = useSearchParams();
@@ -138,10 +138,51 @@ function CheckoutContent() {
             }
         }
 
+        // ZB Smile & Pay — redirect to ZB checkout
+        if (paymentMethod === 'zb_smilenpay') {
+            setLoading(true);
+            try {
+                const zbRes = await fetch('/api/payments/zb-smilenpay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: totalPrice,
+                        currency: currency.toUpperCase(),
+                        userId: user.id,
+                        purpose: 'ORDER',
+                        description: cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', '),
+                        metadata: { cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })) },
+                    }),
+                });
+                const zbData = await zbRes.json();
+                if (zbData.success && zbData.checkoutUrl) {
+                    // Store order context for after payment completes
+                    localStorage.setItem('hexad_pending_zb_order', JSON.stringify({
+                        ...formData,
+                        senderId: user.id,
+                        senderName: user.name,
+                        cartItems,
+                        amount: totalPrice,
+                        currency: currency.toUpperCase(),
+                        paymentId: zbData.paymentId,
+                    }));
+                    window.location.href = zbData.checkoutUrl;
+                    return;
+                } else {
+                    alert(zbData.error || 'Failed to initiate ZB payment. Please try again.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Could not connect to ZB payment gateway. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         setLoading(true);
 
         try {
-            // Create a subscription for the combined cart order
             const cartDescription = cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ');
             const res = await fetch('/api/subscribe', {
                 method: 'POST',
@@ -177,9 +218,7 @@ function CheckoutContent() {
                 });
                 localStorage.setItem(`hexad_deliveries_${user.id}`, JSON.stringify(deliveries));
 
-                // Clear cart
                 localStorage.removeItem('hexad_cart');
-
                 router.push(`/checkout/success?subId=${data.subscriptionId}`);
             } else {
                 alert(data.error || 'Checkout failed. Please try again.');
@@ -354,6 +393,18 @@ function CheckoutContent() {
                             </button>
 
                             <button
+                                className={`${styles.paymentOption} ${paymentMethod === 'zb_smilenpay' ? styles.paymentOptionActive : ''}`}
+                                onClick={() => setPaymentMethod('zb_smilenpay')}
+                            >
+                                <div className={styles.paymentIcon}>🇿🇼</div>
+                                <div className={styles.paymentInfo}>
+                                    <div className={styles.paymentLabel}>ZB Smile &amp; Pay</div>
+                                    <div className={styles.paymentDesc}>Ecocash, InnBucks, Visa/MC, Zimswitch</div>
+                                </div>
+                                <div className={`${styles.paymentRadio} ${paymentMethod === 'zb_smilenpay' ? styles.paymentRadioActive : ''}`} />
+                            </button>
+
+                            <button
                                 className={`${styles.paymentOption} ${paymentMethod === 'stripe' ? styles.paymentOptionActive : ''}`}
                                 onClick={() => setPaymentMethod('stripe')}
                             >
@@ -434,7 +485,7 @@ function CheckoutContent() {
                     </div>
                     <div className={styles.summaryItem}>
                         <span>Payment</span>
-                        <span>{paymentMethod === 'wallet' ? 'Wallet' : paymentMethod === 'stripe' ? 'Stripe' : 'EFT'}</span>
+                        <span>{paymentMethod === 'wallet' ? 'Wallet' : paymentMethod === 'zb_smilenpay' ? 'ZB Smile & Pay' : paymentMethod === 'stripe' ? 'Stripe' : 'EFT'}</span>
                     </div>
                     <div className={styles.summaryItem}>
                         <span>Processing Fee</span>
@@ -455,9 +506,11 @@ function CheckoutContent() {
                             ? 'Processing...'
                             : paymentMethod === 'wallet'
                                 ? `Pay ${getTotalLabel()} from Wallet`
-                                : paymentMethod === 'stripe'
-                                    ? `Pay ${getTotalLabel()} with Card`
-                                    : 'Confirm & Upload Proof'
+                                : paymentMethod === 'zb_smilenpay'
+                                    ? `Pay ${getTotalLabel()} via ZB Smile & Pay`
+                                    : paymentMethod === 'stripe'
+                                        ? `Pay ${getTotalLabel()} with Card`
+                                        : 'Confirm & Upload Proof'
                         }
                     </Button>
 

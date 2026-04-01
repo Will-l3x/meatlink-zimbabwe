@@ -36,7 +36,7 @@ model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   email         String?        @unique
   name          String
-  password      String?        // Password for authentication
+  password      String?
   role          Role           @default(SENDER)
   walletBalance Float          @default(0)
   walletUSD     Float          @default(0)
@@ -47,6 +47,7 @@ model User {
   
   subscriptions Subscription[]
   transactions  Transaction[]
+  payments      Payment[]
 }
 
 model Recipient {
@@ -95,7 +96,7 @@ model Transaction {
   amount        Float
   type          TransactionType
   description   String
-  reference     String?         // EFT Proof ref or Stripe Charge ID
+  reference     String?
   createdAt     DateTime        @default(now())
   
   user          User            @relation(fields: [userId], references: [id])
@@ -108,9 +109,40 @@ model Delivery {
   status         DeliveryStatus  @default(PENDING)
   scheduledDate  DateTime
   deliveredAt    DateTime?
-  proofOfDelivery String?        // URL to image
+  proofOfDelivery String?
   createdAt      DateTime        @default(now())
   
   subscription   Subscription    @relation(fields: [subscriptionId], references: [id])
   recipient      Recipient       @relation(fields: [recipientId], references: [id])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum PaymentPurpose {
+  ORDER
+  WALLET_TOPUP
+}
+
+model Payment {
+  id                  String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String         @db.ObjectId
+  amount              Float
+  currency            String
+  provider            String         // "zb_smilenpay"
+  externalRef         String?        // ZB transactionReference
+  orderReference      String?        // Our order reference sent to ZB
+  status              PaymentStatus  @default(PENDING)
+  purpose             PaymentPurpose
+  paymentUrl          String?        // ZB checkout URL
+  metadata            String?        // JSON string for extra data
+  callbackData        String?        // Raw callback/status payload from ZB
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  user                User           @relation(fields: [userId], references: [id])
 }

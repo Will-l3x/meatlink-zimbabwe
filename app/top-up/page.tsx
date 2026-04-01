@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 
-type PaymentMethod = 'stripe' | 'eft';
+type PaymentMethod = 'stripe' | 'eft' | 'zb_smilenpay';
 type Currency = 'USD' | 'ZAR' | 'GBP';
 
 const PRESET_AMOUNTS: Record<Currency, number[]> = {
@@ -20,7 +20,7 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
 
 export default function TopUpPage() {
     const router = useRouter();
-    const [method, setMethod] = useState<PaymentMethod>('stripe');
+    const [method, setMethod] = useState<PaymentMethod>('zb_smilenpay');
     const [currency, setCurrency] = useState<Currency>('USD');
     const [amount, setAmount] = useState<number | ''>('');
     const [processing, setProcessing] = useState(false);
@@ -64,12 +64,48 @@ export default function TopUpPage() {
         }
     };
 
+    const handleZBPayment = async () => {
+        if (!amount || amount <= 0) return;
+        setProcessing(true);
+
+        try {
+            const storedUser = localStorage.getItem('hexad_user');
+            const user = storedUser ? JSON.parse(storedUser) : null;
+
+            if (!user?.id || user.id === 'guest') {
+                alert('Please log in to top up your wallet.');
+                router.push('/login');
+                return;
+            }
+
+            const res = await fetch('/api/payments/zb-smilenpay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount,
+                    currency,
+                    userId: user.id,
+                    purpose: 'WALLET_TOPUP',
+                    description: `Wallet top-up: ${CURRENCY_SYMBOLS[currency]}${amount}`,
+                }),
+            });
+
+            const data = await res.json();
+            if (data.success && data.checkoutUrl) {
+                window.location.href = data.checkoutUrl;
+            } else {
+                alert(data.error || 'Failed to initiate ZB payment. Please try again.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Could not connect to ZB payment gateway. Please try again.');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     const handleEftUpload = () => {
         if (!amount || amount <= 0) return;
-        const storedUser = localStorage.getItem('hexad_user');
-        const user = storedUser ? JSON.parse(storedUser) : null;
-
-        // EFT is pending admin approval, so we don't update balance yet
         setEftUploaded(true);
     };
 
@@ -125,6 +161,13 @@ export default function TopUpPage() {
                 {/* Payment Method Tabs */}
                 <div className={styles.methodTabs}>
                     <button
+                        className={`${styles.methodTab} ${method === 'zb_smilenpay' ? styles.methodTabActive : ''}`}
+                        onClick={() => setMethod('zb_smilenpay')}
+                    >
+                        <span style={{ fontSize: '1.2rem' }}>🇿🇼</span>
+                        <span>ZB Smile & Pay</span>
+                    </button>
+                    <button
                         className={`${styles.methodTab} ${method === 'stripe' ? styles.methodTabActive : ''}`}
                         onClick={() => setMethod('stripe')}
                     >
@@ -136,7 +179,7 @@ export default function TopUpPage() {
                         onClick={() => setMethod('eft')}
                     >
                         <span style={{ fontSize: '1.2rem' }}>🏦</span>
-                        <span>Bank Transfer (EFT)</span>
+                        <span>Bank Transfer</span>
                     </button>
                 </div>
 
@@ -183,7 +226,46 @@ export default function TopUpPage() {
                 </div>
 
                 {/* Method-specific content */}
-                {method === 'stripe' ? (
+                {method === 'zb_smilenpay' ? (
+                    <div className={styles.stripeSection}>
+                        <div className={styles.secureNote}>
+                            <span>🇿🇼</span>
+                            <span>Pay securely via ZB Bank — supports Ecocash, InnBucks, Visa, Mastercard, and Zimswitch.</span>
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.5rem',
+                            justifyContent: 'center',
+                            margin: '1rem 0',
+                        }}>
+                            {['Ecocash', 'InnBucks', 'Visa', 'Mastercard', 'Zimswitch'].map(pm => (
+                                <span key={pm} style={{
+                                    padding: '0.3rem 0.65rem',
+                                    borderRadius: '20px',
+                                    background: 'var(--background)',
+                                    border: '1px solid var(--border-light)',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600,
+                                    color: 'var(--text-muted)',
+                                }}>
+                                    {pm}
+                                </span>
+                            ))}
+                        </div>
+                        <Button
+                            fullWidth
+                            onClick={handleZBPayment}
+                        >
+                            {processing
+                                ? 'Connecting to ZB...'
+                                : amount
+                                    ? `Pay ${CURRENCY_SYMBOLS[currency]}${amount} via ZB Smile & Pay`
+                                    : 'Enter an amount above'
+                            }
+                        </Button>
+                    </div>
+                ) : method === 'stripe' ? (
                     <div className={styles.stripeSection}>
                         <div className={styles.secureNote}>
                             <span>🔒</span>
