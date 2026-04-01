@@ -84,16 +84,16 @@ export const paymentService = {
         console.log(`[ZB API] Initiating transaction: ${request.currencyCode} ${request.amount} | Order: ${request.orderReference}`);
 
         try {
-            const response = await fetch(`${ZB_CONFIG.apiUrl}/payments/initiate-transaction`, {
+            const response = await fetch(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`, {
                 method: 'POST',
                 headers: getZBHeaders(),
                 body: JSON.stringify(request),
             });
 
-            const data: InitiateTransactionResponse = await response.json();
-            console.log('[ZB API] Response:', JSON.stringify(data));
+            const data = await response.json();
+            console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', response.status);
 
-            if (data.paymentUrl && data.transactionReference) {
+            if (response.ok && data.paymentUrl && data.transactionReference) {
                 return {
                     success: true,
                     paymentUrl: data.paymentUrl,
@@ -103,7 +103,7 @@ export const paymentService = {
 
             return {
                 success: false,
-                error: data.responseMessage || 'Failed to initiate ZB transaction',
+                error: data.message || data.responseMessage || `ZB API error (HTTP ${response.status})`,
             };
         } catch (error) {
             console.error('[ZB API] Network error:', error);

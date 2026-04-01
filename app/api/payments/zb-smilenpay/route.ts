@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { paymentService } from '@/lib/payments';
+
+// Dynamic import for prisma to handle case where Payment model isn't generated yet
+let prismaClient: any = null;
+async function getPrisma() {
+    if (!prismaClient) {
+        try {
+            const mod = await import('@/lib/prisma');
+            prismaClient = mod.prisma;
+        } catch (e) {
+            console.warn('[ZB Payment] Prisma not available:', e);
+        }
+    }
+    return prismaClient;
+}
 
 /**
  * POST /api/payments/zb-smilenpay
@@ -10,6 +23,8 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { amount, currency, userId, purpose, description, metadata } = body;
+
+        console.log('[ZB Payment] Received request:', JSON.stringify({ amount, currency, userId, purpose }));
 
         // Validate
         if (!amount || !userId || !currency) {
@@ -29,181 +44,207 @@ export async function POST(request: Request) {
 
         // Generate a unique order reference
         const orderRef = `ML-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002';
 
-        // 1. Create a Payment record in PENDING state
-        const payment = await prisma.payment.create({
-            data: {
-                userId,
-                amount: parsedAmount,
-                currency: currency.toUpperCase(),
-                provider: 'zb_smilenpay',
-                status: 'PENDING',
-                purpose: purpose === 'WALLET_TOPUP' ? 'WALLET_TOPUP' : 'ORDER',
-                orderReference: orderRef,
-                metadata: metadata ? JSON.stringify(metadata) : null,
+        // Try to save to database first (if Payment model is available)
+        let paymentId: string | null = null;
+        const prisma = await getPrisma();
+
+        if (prisma) {
+            try {
+                const payment = await prisma.payment.create({
+                    data: {
+                        userId,
+                        amount: parsedAmount,
+                        currency: currency.toUpperCase(),
+                        provider: 'zb_smilenpay',
+                        status: 'PENDING',
+                        purpose: purpose === 'WALLET_TOPUP' ? 'WALLET_TOPUP' : 'ORDER',
+                        orderReference: orderRef,
+                        metadata: metadata ? JSON.stringify(metadata) : null,
+                    }
+                });
+                paymentId = payment.id;
+                console.log(`[ZB Payment] DB record created: ${paymentId}`);
+            } catch (dbError: any) {
+                console.warn('[ZB Payment] DB write failed (Payment model may not exist yet):', dbError.message);
+                // Continue without DB — we can still call ZB API
             }
-        });
+        }
 
-        console.log(`[ZB Payment] Created record: ${payment.id} | ${currency} ${parsedAmount} | Ref: ${orderRef}`);
+        // Call the real ZB API to initiate the transaction
+        console.log(`[ZB Payment] Calling ZB API: ${currency.toUpperCase()} ${parsedAmount} | Ref: ${orderRef}`);
 
-        // 2. Call the real ZB API to initiate the transaction
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const zbResult = await paymentService.initiateTransaction({
             orderReference: orderRef,
             amount: parsedAmount,
             currencyCode: currency.toUpperCase(),
-            returnUrl: `${baseUrl}/checkout/zb-return?paymentId=${payment.id}&orderRef=${orderRef}`,
+            returnUrl: `${baseUrl}/checkout/zb-return?paymentId=${paymentId || 'none'}&orderRef=${orderRef}`,
             resultUrl: `${baseUrl}/api/payments/zb-smilenpay/callback`,
-            cancelUrl: `${baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=cancelled`,
-            failureUrl: `${baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=failed`,
+            cancelUrl: `${baseUrl}/checkout/zb-return?paymentId=${paymentId || 'none'}&status=cancelled`,
+            failureUrl: `${baseUrl}/checkout/zb-return?paymentId=${paymentId || 'none'}&status=failed`,
             itemName: description || 'MeatLink Zimbabwe Order',
             itemDescription: description || 'Payment for MeatLink Zimbabwe',
         });
 
+        console.log('[ZB Payment] ZB API response:', JSON.stringify(zbResult));
+
         if (!zbResult.success) {
-            await prisma.payment.update({
-                where: { id: payment.id },
-                data: { status: 'FAILED' }
-            });
+            // Update DB record to FAILED if we have one
+            if (paymentId && prisma) {
+                try {
+                    await prisma.payment.update({
+                        where: { id: paymentId },
+                        data: { status: 'FAILED' }
+                    });
+                } catch (e) { /* ignore */ }
+            }
 
             return NextResponse.json(
                 { success: false, error: zbResult.error || 'Failed to initiate ZB payment' },
-                { status: 500 }
+                { status: 502 }
             );
         }
 
-        // 3. Store the ZB references
-        await prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-                externalRef: zbResult.transactionReference,
-                paymentUrl: zbResult.paymentUrl,
-            }
-        });
+        // Update DB record with ZB references
+        if (paymentId && prisma) {
+            try {
+                await prisma.payment.update({
+                    where: { id: paymentId },
+                    data: {
+                        externalRef: zbResult.transactionReference,
+                        paymentUrl: zbResult.paymentUrl,
+                    }
+                });
+            } catch (e) { /* ignore */ }
+        }
 
-        console.log(`[ZB Payment] Session created → URL: ${zbResult.paymentUrl}`);
+        console.log(`[ZB Payment] ✅ Session created → URL: ${zbResult.paymentUrl}`);
 
         return NextResponse.json({
             success: true,
-            paymentId: payment.id,
+            paymentId: paymentId || orderRef,
             checkoutUrl: zbResult.paymentUrl,
             transactionReference: zbResult.transactionReference,
             orderReference: orderRef,
         });
 
-    } catch (error) {
-        console.error('[ZB Payment] Error:', error);
+    } catch (error: any) {
+        console.error('[ZB Payment] Error:', error.message, error.stack);
         return NextResponse.json(
-            { success: false, error: 'Failed to process ZB payment request' },
+            { success: false, error: `Failed to process ZB payment: ${error.message}` },
             { status: 500 }
         );
     }
 }
 
 /**
- * GET /api/payments/zb-smilenpay?paymentId=xxx
- * Check the status of a payment (polls ZB then updates local record)
+ * GET /api/payments/zb-smilenpay?paymentId=xxx&orderRef=xxx
+ * Check the status of a payment
  */
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const paymentId = searchParams.get('paymentId');
+        const orderRef = searchParams.get('orderRef');
 
-        if (!paymentId) {
-            return NextResponse.json(
-                { success: false, error: 'Missing paymentId' },
-                { status: 400 }
-            );
-        }
+        // Try to check via ZB API directly using order reference
+        if (orderRef) {
+            const zbStatus = await paymentService.checkTransactionStatus(orderRef);
+            console.log('[ZB Payment] Status check:', JSON.stringify(zbStatus));
 
-        const payment = await prisma.payment.findUnique({
-            where: { id: paymentId }
-        });
-
-        if (!payment) {
-            return NextResponse.json(
-                { success: false, error: 'Payment not found' },
-                { status: 404 }
-            );
-        }
-
-        // If payment is still pending, poll ZB for the latest status
-        if (payment.status === 'PENDING' && payment.orderReference) {
-            const zbStatus = await paymentService.checkTransactionStatus(payment.orderReference);
-
-            if (zbStatus.success && zbStatus.status) {
-                const normalizedStatus = zbStatus.status.toUpperCase();
-                let newStatus = payment.status;
+            if (zbStatus.success) {
+                const normalizedStatus = (zbStatus.status || '').toUpperCase();
+                let mappedStatus = 'PENDING';
 
                 if (['SUCCESS', 'PAID'].includes(normalizedStatus)) {
-                    newStatus = 'COMPLETED';
+                    mappedStatus = 'COMPLETED';
                 } else if (['FAILED', 'CANCELLED'].includes(normalizedStatus)) {
-                    newStatus = 'FAILED';
+                    mappedStatus = 'FAILED';
                 }
 
-                if (newStatus !== payment.status) {
-                    await prisma.payment.update({
-                        where: { id: paymentId },
-                        data: {
-                            status: newStatus,
-                            callbackData: JSON.stringify(zbStatus.data),
+                // Try to update DB if available
+                const prisma = await getPrisma();
+                if (prisma && paymentId && paymentId !== 'none') {
+                    try {
+                        const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+                        if (payment && payment.status === 'PENDING' && mappedStatus !== 'PENDING') {
+                            await prisma.payment.update({
+                                where: { id: paymentId },
+                                data: {
+                                    status: mappedStatus,
+                                    callbackData: JSON.stringify(zbStatus.data),
+                                }
+                            });
+
+                            // Credit wallet on successful top-up
+                            if (mappedStatus === 'COMPLETED' && payment.purpose === 'WALLET_TOPUP') {
+                                const curr = payment.currency.toUpperCase();
+                                const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+
+                                await prisma.user.update({
+                                    where: { id: payment.userId },
+                                    data: { [walletField]: { increment: payment.amount } }
+                                });
+
+                                await prisma.transaction.create({
+                                    data: {
+                                        userId: payment.userId,
+                                        amount: payment.amount,
+                                        type: 'DEPOSIT',
+                                        description: `Wallet top-up via ZB Smile & Pay (${curr})`,
+                                        reference: `ZB-${orderRef}`,
+                                    }
+                                });
+                            }
                         }
-                    });
+                    } catch (e) { /* DB not available */ }
+                }
 
-                    // If completed and purpose is wallet top-up, credit the wallet
-                    if (newStatus === 'COMPLETED' && payment.purpose === 'WALLET_TOPUP') {
-                        const curr = payment.currency.toUpperCase();
-                        const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+                return NextResponse.json({
+                    success: true,
+                    payment: {
+                        id: paymentId || orderRef,
+                        status: mappedStatus,
+                        orderReference: orderRef,
+                        zbData: zbStatus.data,
+                    }
+                });
+            }
+        }
 
-                        await prisma.user.update({
-                            where: { id: payment.userId },
-                            data: { [walletField]: { increment: payment.amount } }
-                        });
-
-                        await prisma.transaction.create({
-                            data: {
-                                userId: payment.userId,
+        // Fallback: check DB directly
+        if (paymentId && paymentId !== 'none') {
+            const prisma = await getPrisma();
+            if (prisma) {
+                try {
+                    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+                    if (payment) {
+                        return NextResponse.json({
+                            success: true,
+                            payment: {
+                                id: payment.id,
+                                status: payment.status,
                                 amount: payment.amount,
-                                type: 'DEPOSIT',
-                                description: `Wallet top-up via ZB Smile & Pay (${curr})`,
-                                reference: `ZB-${payment.orderReference}`,
+                                currency: payment.currency,
+                                purpose: payment.purpose,
+                                orderReference: payment.orderReference,
                             }
                         });
-
-                        console.log(`[ZB Payment] Wallet credited: ${curr} ${payment.amount} for user ${payment.userId}`);
                     }
-
-                    return NextResponse.json({
-                        success: true,
-                        payment: {
-                            id: payment.id,
-                            status: newStatus,
-                            amount: payment.amount,
-                            currency: payment.currency,
-                            purpose: payment.purpose,
-                            orderReference: payment.orderReference,
-                        }
-                    });
-                }
+                } catch (e) { /* DB not available */ }
             }
         }
 
         return NextResponse.json({
-            success: true,
-            payment: {
-                id: payment.id,
-                status: payment.status,
-                amount: payment.amount,
-                currency: payment.currency,
-                purpose: payment.purpose,
-                orderReference: payment.orderReference,
-            }
-        });
+            success: false,
+            error: 'Payment not found',
+        }, { status: 404 });
 
-    } catch (error) {
-        console.error('[ZB Payment] Status check error:', error);
+    } catch (error: any) {
+        console.error('[ZB Payment] Status check error:', error.message);
         return NextResponse.json(
-            { success: false, error: 'Failed to check payment status' },
+            { success: false, error: `Status check failed: ${error.message}` },
             { status: 500 }
         );
     }
