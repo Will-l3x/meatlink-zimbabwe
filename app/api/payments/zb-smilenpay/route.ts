@@ -43,8 +43,12 @@ export async function POST(request: Request) {
         }
 
         // Generate a unique order reference
-        const orderRef = `ML-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002';
+        const orderRef = `ML-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        
+        // Dynamically compute Base URL
+        const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3002';
+        const protocol = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
 
         // Try to save to database first (if Payment model is available)
         let paymentId: string | null = null;
