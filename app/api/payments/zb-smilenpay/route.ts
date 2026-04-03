@@ -85,6 +85,10 @@ export async function POST(request: Request) {
             failureUrl: `${baseUrl}/checkout/zb-return?paymentId=${paymentId || 'none'}&status=failed`,
             itemName: description || 'MeatLink Zimbabwe Order',
             itemDescription: description || 'Payment for MeatLink Zimbabwe',
+            firstName: body.firstName || 'MeatLink',
+            lastName: body.lastName || 'Customer',
+            email: body.email || 'support@meatlink.co.zw',
+            mobilePhoneNumber: body.mobilePhoneNumber || '0770000000',
         });
 
         console.log('[ZB Payment] ZB API response:', JSON.stringify(zbResult));
@@ -107,6 +111,7 @@ export async function POST(request: Request) {
         }
 
         // Update DB record with ZB references
+        const finalOrderRef = zbResult.actualOrderReference || orderRef;
         if (paymentId && prisma) {
             try {
                 await prisma.payment.update({
@@ -114,6 +119,7 @@ export async function POST(request: Request) {
                     data: {
                         externalRef: zbResult.transactionReference,
                         paymentUrl: zbResult.paymentUrl,
+                        orderReference: finalOrderRef,
                     }
                 });
             } catch (e) { /* ignore */ }
@@ -123,10 +129,10 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            paymentId: paymentId || orderRef,
+            paymentId: paymentId || finalOrderRef,
             checkoutUrl: zbResult.paymentUrl,
             transactionReference: zbResult.transactionReference,
-            orderReference: orderRef,
+            orderReference: finalOrderRef,
         });
 
     } catch (error: any) {
@@ -157,7 +163,7 @@ export async function GET(request: Request) {
                 const normalizedStatus = (zbStatus.status || '').toUpperCase();
                 let mappedStatus = 'PENDING';
 
-                if (['SUCCESS', 'PAID'].includes(normalizedStatus)) {
+                if (['SUCCESS', 'PAID', 'COMPLETED'].includes(normalizedStatus)) {
                     mappedStatus = 'COMPLETED';
                 } else if (['FAILED', 'CANCELLED'].includes(normalizedStatus)) {
                     mappedStatus = 'FAILED';

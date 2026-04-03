@@ -79,39 +79,67 @@ export const paymentService = {
         success: boolean;
         paymentUrl?: string;
         transactionReference?: string;
+        actualOrderReference?: string;
         error?: string;
     }> {
         console.log(`[ZB API] Initiating transaction: ${request.currencyCode} ${request.amount} | Order: ${request.orderReference}`);
 
-        try {
-            const response = await fetch(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`, {
-                method: 'POST',
-                headers: getZBHeaders(),
-                body: JSON.stringify(request),
-            });
+        const MAX_RETRIES = 3;
+        let lastError = '';
 
-            const data = await response.json();
-            console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', response.status);
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                console.log(`[ZB API] Attempt ${attempt}/${MAX_RETRIES}...`);
 
-            if (response.ok && data.paymentUrl && data.transactionReference) {
-                return {
-                    success: true,
-                    paymentUrl: data.paymentUrl,
-                    transactionReference: data.transactionReference,
-                };
+                // If retrying, append suffix to avoid "Suspected duplicate orderId"
+                const currentOrderRef = attempt === 1 ? request.orderReference : `${request.orderReference}-R${attempt}`;
+                
+                // Deep clone and update the order reference
+                const payload = { ...request, orderReference: currentOrderRef };
+
+                const response = await fetch(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`, {
+                    method: 'POST',
+                    headers: getZBHeaders(),
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await response.json();
+                console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', response.status);
+
+                if (response.ok && data.paymentUrl && data.transactionReference) {
+                    return {
+                        success: true,
+                        paymentUrl: data.paymentUrl,
+                        transactionReference: data.transactionReference,
+                        actualOrderReference: currentOrderRef,
+                    };
+                }
+
+                lastError = data.message || data.responseMessage || `ZB API error (HTTP ${response.status})`;
+
+                // Handle server errors OR duplicate order error by retrying
+                if ((response.status >= 500 || data.responseMessage === 'Suspected duplicate orderId') && attempt < MAX_RETRIES) {
+                    console.log(`[ZB API] Transient error, retrying in 1s...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+
+                break;
+            } catch (error: any) {
+                console.error(`[ZB API] Network error on attempt ${attempt}:`, error.message);
+                lastError = 'Could not connect to ZB payment gateway';
+
+                if (attempt < MAX_RETRIES) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
             }
-
-            return {
-                success: false,
-                error: data.message || data.responseMessage || `ZB API error (HTTP ${response.status})`,
-            };
-        } catch (error) {
-            console.error('[ZB API] Network error:', error);
-            return {
-                success: false,
-                error: 'Could not connect to ZB payment gateway',
-            };
         }
+
+        return {
+            success: false,
+            error: lastError,
+        };
     },
 
     /**

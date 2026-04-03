@@ -40,7 +40,7 @@ function ZBReturnContent() {
 
         const checkStatus = async () => {
             try {
-                const res = await fetch(`/api/payments/zb-smilenpay?paymentId=${paymentId}`);
+                const res = await fetch(`/api/payments/zb-smilenpay?paymentId=${paymentId}&orderRef=${orderRef}`);
                 const data = await res.json();
 
                 if (data.success && data.payment) {
@@ -60,6 +60,41 @@ function ZBReturnContent() {
                                 const walletKey = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
                                 user[walletKey] = (user[walletKey] || 0) + data.payment.amount;
                                 localStorage.setItem('hexad_user', JSON.stringify(user));
+                            }
+                        } else {
+                            // Automatically process the pending subscription/order
+                            const pendingStr = localStorage.getItem('hexad_pending_zb_order');
+                            if (pendingStr) {
+                                try {
+                                    const pendingOrder = JSON.parse(pendingStr);
+                                    fetch('/api/subscribe', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            ...pendingOrder,
+                                            hamperId: pendingOrder.cartItems?.map((i: any) => i.id).join('+') || 'unknown',
+                                            hamperName: pendingOrder.cartItems?.map((i: any) => `${i.title} (${i.kg}kg)`).join(', ') || 'MeatLink Order',
+                                            paymentMethod: 'zb_smilenpay'
+                                        })
+                                    }).then(r => r.json()).then(subData => {
+                                        if (subData.success) {
+                                            const deliveries = JSON.parse(localStorage.getItem(`hexad_deliveries_${pendingOrder.senderId}`) || '[]');
+                                            deliveries.unshift({
+                                                id: subData.subscriptionId,
+                                                recipientName: pendingOrder.recipientName,
+                                                date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+                                                location: `${pendingOrder.recipientSuburb || 'Unknown'}, Harare`,
+                                                status: 'Scheduled',
+                                                pack: pendingOrder.cartItems?.map((i: any) => `${i.title} (${i.kg}kg)`).join(', ') || 'MeatLink Order'
+                                            });
+                                            localStorage.setItem(`hexad_deliveries_${pendingOrder.senderId}`, JSON.stringify(deliveries));
+                                            localStorage.removeItem('hexad_cart');
+                                            localStorage.removeItem('hexad_pending_zb_order');
+                                        }
+                                    }).catch(e => console.error('Error auto-creating subscription for ZB order:', e));
+                                } catch(e) {
+                                    console.error('Error parsing pending order:', e);
+                                }
                             }
                         }
                         return;

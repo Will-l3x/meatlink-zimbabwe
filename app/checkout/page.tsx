@@ -12,7 +12,7 @@ interface CartItem {
     pricing: { usd: number; zar: number; gbp: number };
 }
 
-type PaymentMethod = 'wallet' | 'stripe' | 'eft' | 'zb_smilenpay';
+type PaymentMethod = 'zb_smilenpay';
 
 function CheckoutContent() {
     const searchParams = useSearchParams();
@@ -32,7 +32,7 @@ function CheckoutContent() {
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('zb_smilenpay');
     const [savedRecipients, setSavedRecipients] = useState<Array<{ id: string, name: string, whatsapp: string, address: string, suburb: string }>>([]);
     const [walletBalances, setWalletBalances] = useState({ usd: 0, zar: 0, gbp: 0 });
     const [formData, setFormData] = useState({
@@ -130,14 +130,6 @@ function CheckoutContent() {
         const user = JSON.parse(storedUser);
         const totalPrice = getCartTotal();
 
-        if (paymentMethod === 'wallet') {
-            const currBal = currency === 'zar' ? (user.walletZAR || 0) : currency === 'gbp' ? (user.walletGBP || 0) : (user.walletUSD || 0);
-            if (currBal < totalPrice) {
-                alert(`Insufficient ${currency.toUpperCase()} wallet balance. You have ${getCurrencySymbol()}${currBal.toFixed(2)} but need ${getTotalLabel()}. Please top up your wallet first.`);
-                return;
-            }
-        }
-
         // ZB Smile & Pay — redirect to ZB checkout
         if (paymentMethod === 'zb_smilenpay') {
             setLoading(true);
@@ -179,60 +171,7 @@ function CheckoutContent() {
             }
             return;
         }
-
-        setLoading(true);
-
-        try {
-            const cartDescription = cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ');
-            const res = await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...formData,
-                    senderId: user.id,
-                    senderName: user.name,
-                    hamperId: cartItems.map(i => i.id).join('+'),
-                    hamperName: cartDescription,
-                    amount: totalPrice,
-                    currency: currency.toUpperCase(),
-                    paymentMethod
-                })
-            });
-
-            const data = await res.json();
-            if (data.success) {
-                if (paymentMethod === 'wallet') {
-                    const walletKey = currency === 'zar' ? 'walletZAR' : currency === 'gbp' ? 'walletGBP' : 'walletUSD';
-                    user[walletKey] = (user[walletKey] || 0) - totalPrice;
-                    localStorage.setItem('hexad_user', JSON.stringify(user));
-                }
-
-                const deliveries = JSON.parse(localStorage.getItem(`hexad_deliveries_${user.id}`) || '[]');
-                deliveries.unshift({
-                    id: data.subscriptionId,
-                    recipientName: formData.recipientName,
-                    date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-                    location: `${formData.recipientSuburb}, Harare`,
-                    status: 'Scheduled',
-                    pack: cartDescription
-                });
-                localStorage.setItem(`hexad_deliveries_${user.id}`, JSON.stringify(deliveries));
-
-                localStorage.removeItem('hexad_cart');
-                router.push(`/checkout/success?subId=${data.subscriptionId}`);
-            } else {
-                alert(data.error || 'Checkout failed. Please try again.');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('An error occurred during checkout. Please try again.');
-        } finally {
-            setLoading(false);
-        }
     };
-
-    const currentWalletBalance = walletBalances[currency];
-    const hasEnoughBalance = currentWalletBalance >= getCartTotal();
 
     if (cartItems.length === 0) {
         return (
@@ -376,23 +315,6 @@ function CheckoutContent() {
 
                         <div className={styles.paymentMethods}>
                             <button
-                                className={`${styles.paymentOption} ${paymentMethod === 'wallet' ? styles.paymentOptionActive : ''}`}
-                                onClick={() => setPaymentMethod('wallet')}
-                            >
-                                <div className={styles.paymentIcon}>💰</div>
-                                <div className={styles.paymentInfo}>
-                                    <div className={styles.paymentLabel}>Hexad Wallet</div>
-                                    <div className={styles.paymentDesc}>
-                                        Balance: {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
-                                        {!hasEnoughBalance && (
-                                            <span style={{ color: 'var(--error)', fontWeight: 600 }}> — Insufficient</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className={`${styles.paymentRadio} ${paymentMethod === 'wallet' ? styles.paymentRadioActive : ''}`} />
-                            </button>
-
-                            <button
                                 className={`${styles.paymentOption} ${paymentMethod === 'zb_smilenpay' ? styles.paymentOptionActive : ''}`}
                                 onClick={() => setPaymentMethod('zb_smilenpay')}
                             >
@@ -403,54 +325,7 @@ function CheckoutContent() {
                                 </div>
                                 <div className={`${styles.paymentRadio} ${paymentMethod === 'zb_smilenpay' ? styles.paymentRadioActive : ''}`} />
                             </button>
-
-                            <button
-                                className={`${styles.paymentOption} ${paymentMethod === 'stripe' ? styles.paymentOptionActive : ''}`}
-                                onClick={() => setPaymentMethod('stripe')}
-                            >
-                                <div className={styles.paymentIcon}>💳</div>
-                                <div className={styles.paymentInfo}>
-                                    <div className={styles.paymentLabel}>Credit / Debit Card</div>
-                                    <div className={styles.paymentDesc}>Processed securely via Stripe</div>
-                                </div>
-                                <div className={`${styles.paymentRadio} ${paymentMethod === 'stripe' ? styles.paymentRadioActive : ''}`} />
-                            </button>
-
-                            <button
-                                className={`${styles.paymentOption} ${paymentMethod === 'eft' ? styles.paymentOptionActive : ''}`}
-                                onClick={() => setPaymentMethod('eft')}
-                            >
-                                <div className={styles.paymentIcon}>🏦</div>
-                                <div className={styles.paymentInfo}>
-                                    <div className={styles.paymentLabel}>Bank Transfer (EFT)</div>
-                                    <div className={styles.paymentDesc}>SA banks — upload proof of payment</div>
-                                </div>
-                                <div className={`${styles.paymentRadio} ${paymentMethod === 'eft' ? styles.paymentRadioActive : ''}`} />
-                            </button>
                         </div>
-
-                        {paymentMethod === 'wallet' && !hasEnoughBalance && (
-                            <div style={{
-                                marginTop: '1rem',
-                                padding: '1rem',
-                                background: 'rgba(193, 41, 46, 0.06)',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(193, 41, 46, 0.15)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem'
-                            }}>
-                                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-                                <div>
-                                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--error)' }}>
-                                        You need {getTotalLabel()} but only have {getCurrencySymbol()}{currentWalletBalance.toFixed(2)}
-                                    </p>
-                                    <a href="/top-up" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
-                                        Top up your wallet →
-                                    </a>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -485,7 +360,7 @@ function CheckoutContent() {
                     </div>
                     <div className={styles.summaryItem}>
                         <span>Payment</span>
-                        <span>{paymentMethod === 'wallet' ? 'Wallet' : paymentMethod === 'zb_smilenpay' ? 'ZB Smile & Pay' : paymentMethod === 'stripe' ? 'Stripe' : 'EFT'}</span>
+                        <span>ZB Smile & Pay</span>
                     </div>
                     <div className={styles.summaryItem}>
                         <span>Processing Fee</span>
@@ -504,26 +379,10 @@ function CheckoutContent() {
                     >
                         {loading
                             ? 'Processing...'
-                            : paymentMethod === 'wallet'
-                                ? `Pay ${getTotalLabel()} from Wallet`
-                                : paymentMethod === 'zb_smilenpay'
-                                    ? `Pay ${getTotalLabel()} via ZB Smile & Pay`
-                                    : paymentMethod === 'stripe'
-                                        ? `Pay ${getTotalLabel()} with Card`
-                                        : 'Confirm & Upload Proof'
+                            : `Pay ${getTotalLabel()} via ZB Smile & Pay`
                         }
                     </Button>
 
-                    {paymentMethod === 'wallet' && hasEnoughBalance && (
-                        <p style={{
-                            marginTop: '0.75rem',
-                            fontSize: '0.75rem',
-                            color: 'var(--text-muted)',
-                            textAlign: 'center'
-                        }}>
-                            Remaining balance: {getCurrencySymbol()}{(currentWalletBalance - getCartTotal()).toFixed(2)}
-                        </p>
-                    )}
                 </aside>
             </div>
         </div>
