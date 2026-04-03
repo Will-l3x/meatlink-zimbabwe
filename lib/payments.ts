@@ -6,7 +6,7 @@
  * - POST /payments/initiate-transaction → Creates a payment, returns paymentUrl
  * - GET  /payments/transaction/{ref}/status/check → Polls payment status
  * - POST /payments/ecocash-payment → Direct Ecocash payment
- * - POST /payments/innbucks-payment → Direct InnBucks payment
+ * - POST /payments/innbucks-payment → Direct InnBucks payments
  */
 
 // ZB API Configuration
@@ -93,7 +93,7 @@ export const paymentService = {
 
                 // If retrying, append suffix to avoid "Suspected duplicate orderId"
                 const currentOrderRef = attempt === 1 ? request.orderReference : `${request.orderReference}-R${attempt}`;
-                
+
                 // Deep clone and update the order reference
                 const payload = { ...request, orderReference: currentOrderRef };
 
