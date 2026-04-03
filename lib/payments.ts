@@ -1,3 +1,5 @@
+import * as https from 'https';
+
 /**
  * ZB Smile & Pay Payment Gateway Service
  * Uses the real ZB Payments Gateway API (OpenAPI spec).
@@ -102,40 +104,51 @@ export const paymentService = {
                 // Deep clone and update the order reference
                 const payload = { ...request, orderReference: currentOrderRef };
 
-                const response = await fetch(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`, {
+                const payloadStr = JSON.stringify(payload);
+                
+                // Use https.request instead of fetch to bypass Next.js header sanitization
+                const url = new URL(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`);
+                const options = {
                     method: 'POST',
-                    headers: getZBHeaders(),
-                    body: JSON.stringify(payload),
+                    headers: {
+                        ...getZBHeaders(),
+                        'Content-Length': Buffer.byteLength(payloadStr)
+                    }
+                };
+
+                const responseData = await new Promise<{status: number, data: any, raw: string}>((resolve, reject) => {
+                    const req = https.request(url, options, (res) => {
+                        let raw = '';
+                        res.on('data', chunk => raw += chunk);
+                        res.on('end', () => {
+                            let parsed = null;
+                            try { parsed = JSON.parse(raw); } catch (e) {}
+                            resolve({ status: res.statusCode || 500, data: parsed, raw });
+                        });
+                    });
+                    req.on('error', reject);
+                    req.write(payloadStr);
+                    req.end();
                 });
 
-                let rawText = '';
-                try {
-                    rawText = await response.text();
-                    const data = JSON.parse(rawText);
-                    console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', response.status);
+                const data = responseData.data || {};
+                console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', responseData.status);
 
-                    if (response.ok && data.paymentUrl && data.transactionReference) {
-                        return {
-                            success: true,
-                            paymentUrl: data.paymentUrl,
-                            transactionReference: data.transactionReference,
-                            actualOrderReference: currentOrderRef,
-                        };
-                    }
+                if (responseData.status >= 200 && responseData.status < 300 && data.paymentUrl && data.transactionReference) {
+                    return {
+                        success: true,
+                        paymentUrl: data.paymentUrl,
+                        transactionReference: data.transactionReference,
+                        actualOrderReference: currentOrderRef,
+                    };
+                }
 
-                    lastError = data.message || data.responseMessage || `ZB API error HTTP ${response.status}: ${JSON.stringify(data)}`;
+                lastError = data.message || data.responseMessage || `ZB API error HTTP ${responseData.status}: ${responseData.raw}`;
 
-                    if ((response.status >= 500 || data.responseMessage === 'Suspected duplicate orderId') && attempt < MAX_RETRIES) {
-                        console.log(`[ZB API] Transient error, retrying in 1s...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        continue;
-                    }
-                } catch (parseEr) {
-                    lastError = `ZB API error HTTP ${response.status}: ${rawText}`;
-                    if (response.status >= 500 && attempt < MAX_RETRIES) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        continue;
-                    }
+                if ((responseData.status >= 500 || data.responseMessage === 'Suspected duplicate orderId') && attempt < MAX_RETRIES) {
+                    console.log(`[ZB API] Transient error, retrying in 1s...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
                 }
 
                 break;
