@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         // Dynamically compute Base URL
         const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3002';
         const protocol = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+        const baseUrl = `${protocol}://${host}`;
 
         // Try to save to database first (if Payment model is available)
         let paymentId: string | null = null;
