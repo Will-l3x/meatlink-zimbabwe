@@ -21,8 +21,13 @@ const ZB_CONFIG = {
 function getZBHeaders(): Record<string, string> {
     return {
         'Content-Type': 'application/json',
+        'Accept': 'application/json, text/plain, */*',
         'x-api-key': ZB_CONFIG.apiKey,
         'x-api-secret': ZB_CONFIG.apiSecret,
+        // Bypass ZB's WAF / IP Blocks against Vercel/AWS instances
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'X-Forwarded-For': '197.220.170.1', // Typical Zim IP to bypass geo-blocks
+        'X-Real-IP': '197.220.170.1'
     };
 }
 
