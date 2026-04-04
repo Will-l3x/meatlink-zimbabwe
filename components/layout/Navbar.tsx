@@ -34,7 +34,7 @@ export default function Navbar() {
     return (
         <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
             <Link href="/" className={styles.logo}>
-                MeatLink <span>Zimbabwe</span>
+                Hexad <span>Market</span>
             </Link>
 
             <nav className={styles.nav}>

@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MeatLink Zimbabwe — Premium Meat Delivery to Harare",
+  title: "Hexad Market — Premium Meat Delivery to Harare",
   description: "Send premium, fresh meat hampers to your family in Harare. Delivered weekly. Trusted by the diaspora since 2024.",
 };
 
