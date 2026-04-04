@@ -1,33 +1,36 @@
 :root {
-  --background: #faf8f5;
-  --foreground: #1a1a2e;
-  
-  /* Brand Colors */
-  --primary: #C44536;       /* Warm Terracotta Red */
-  --primary-hover: #d95a4a;
-  --primary-light: rgba(196, 69, 54, 0.08);
-  --secondary: #1B4332;     /* Deep Forest Green */
-  --secondary-hover: #2d6a4f;
-  --secondary-light: rgba(27, 67, 50, 0.08);
-  
-  /* Status Colors */
-  --success: #2d6a4f;
-  --error: #c1292e;
-  
-  /* UI/Surfaces */
-  --card-bg: #ffffff;
-  --card-border: rgba(27, 67, 50, 0.1);
-  --card-shadow: 0 2px 16px rgba(27, 67, 50, 0.06);
-  --glass-bg: rgba(250, 248, 245, 0.85);
-  --glass-border: rgba(27, 67, 50, 0.1);
-  
-  /* Muted text */
-  --text-muted: #6b7280;
-  --text-light: #9ca3af;
-  --border-light: rgba(27, 67, 50, 0.08);
-  
+  /* ─── Core Palette ──────────────────────────── */
+  --background: #0d0d0f;
+  --foreground: #f2f1ee;
+
+  /* Brand */
+  --primary: #c1292e;
+  --primary-hover: #d93e43;
+  --primary-light: rgba(193, 41, 46, 0.12);
+
+  --secondary: #1f4d38;
+  --secondary-hover: #29654a;
+  --secondary-light: rgba(31, 77, 56, 0.15);
+
+  /* Status */
+  --success: #22c55e;
+  --error: #ef4444;
+
+  /* Surfaces */
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --glass-bg: rgba(13, 13, 15, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Typography */
+  --text-muted: #8c8c94;
+  --text-light: #555560;
+  --border-light: rgba(255, 255, 255, 0.07);
+
   /* Spacing */
   --radius: 14px;
+  --spacing: max(1.5rem, 5vw);
 }
 
 * {
@@ -42,42 +45,52 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Typography Utilities */
+/* ─── Link base ──────────────────────────────── */
+a { text-decoration: none; color: inherit; }
+
+/* ─── Typography ─────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   color: var(--foreground);
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-h1 {
-  font-size: 2.5rem;
-  letter-spacing: -0.03em;
+h1 { font-size: clamp(2.2rem, 5.5vw, 3.75rem); line-height: 1.08; }
+h2 { font-size: clamp(1.6rem, 3.5vw, 2.6rem); line-height: 1.15; }
+h3 { font-size: 1.2rem; }
+
+/* ─── Inputs & Selects ───────────────────────── */
+input, textarea, select {
+  font-family: inherit;
   color: var(--foreground);
-  background: none;
-  -webkit-background-clip: unset;
-  -webkit-text-fill-color: unset;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+  font-size: 0.92rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-
-/* Premium Button Utility */
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, #a33327 100%);
-  color: #fff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius);
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(193, 41, 46, 0.15);
 }
+select option { background: #1a1a1e; }
 
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(196, 69, 54, 0.25);
+/* ─── Scrollbar ──────────────────────────────── */
+::-webkit-scrollbar { width: 6px; background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
 }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
+/* ─── Utility ────────────────────────────────── */
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 var(--spacing);
 }

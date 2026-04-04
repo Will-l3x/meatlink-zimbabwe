@@ -1,55 +1,83 @@
+/* ─────────────────────────────────────────────
+   Landing Page — Dark Premium Redesign
+───────────────────────────────────────────── */
 .main {
   min-height: 100vh;
 }
 
+/* ── Hero ──────────────────────────────────── */
 .hero {
   text-align: center;
-  padding: 6rem var(--spacing) 4rem;
-  background: radial-gradient(ellipse at top, rgba(196, 69, 54, 0.06) 0%, transparent 60%);
+  padding: 7rem var(--spacing) 5rem;
+  position: relative;
+  overflow: hidden;
 }
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80vw;
+  height: 80vw;
+  max-width: 900px;
+  max-height: 900px;
+  background: radial-gradient(ellipse, rgba(193, 41, 46, 0.18) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero > * { position: relative; z-index: 1; }
 
 .heroBadge {
   display: inline-block;
-  padding: 0.4rem 1.2rem;
-  background: var(--secondary-light);
-  color: var(--secondary);
+  padding: 0.4rem 1.1rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 50px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
   margin-bottom: 2rem;
-  border: 1px solid rgba(27, 67, 50, 0.12);
+  backdrop-filter: blur(8px);
 }
 
 .hero h1 {
-  font-size: clamp(2.5rem, 6vw, 4rem);
-  font-weight: 800;
-  color: var(--text);
-  line-height: 1.1;
   margin-bottom: 1.5rem;
+  color: var(--foreground);
+}
+
+.heroAccent {
+  background: linear-gradient(135deg, #c1292e 0%, #e85d2e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero p {
   font-size: 1.15rem;
   color: var(--text-muted);
-  max-width: 540px;
-  margin: 0 auto;
-  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.7;
 }
 
 .ctaGroup {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 2.5rem;
+  flex-wrap: wrap;
 }
 
-/* Trust Stats Bar */
+/* ── Trust Stats ───────────────────────────── */
 .trustBar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   max-width: 900px;
-  margin: 0 auto 4rem;
+  margin: 0 auto 6rem;
   padding: 0 var(--spacing);
 }
 
@@ -59,113 +87,191 @@
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s, border-color 0.2s;
+}
+.trustItem:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,0.15);
 }
 
 .trustValue {
-  font-size: 1.8rem;
-  font-weight: 800;
+  font-size: 1.75rem;
+  font-weight: 900;
   color: var(--primary);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
+  letter-spacing: -0.02em;
 }
 
 .trustLabel {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* Sections */
+/* ── Sections ──────────────────────────────── */
 .section {
   max-width: 1200px;
-  margin: 0 auto 4rem;
-  padding: 3rem var(--spacing);
+  margin: 0 auto 6rem;
+  padding: 0 var(--spacing);
 }
 
 .sectionHeader {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 3.5rem;
 }
-
-.sectionHeader h2 {
-  font-size: 2.2rem;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 0.5rem;
-}
-
+.sectionHeader h2 { margin-bottom: 0.6rem; }
 .sectionHeader p {
   color: var(--text-muted);
   font-size: 1.05rem;
 }
 
-/* Steps */
-.grid {
+/* ── Featured Cuts ─────────────────────────── */
+.cutsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+
+.cutCard {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+.cutCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(193,41,46,0.3);
+  box-shadow: 0 12px 32px rgba(193,41,46,0.12);
+}
+
+.cutEmoji { font-size: 2.25rem; margin-bottom: 0.75rem; }
+
+.cutTag {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 50px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: var(--primary-light);
+  color: var(--primary);
+  margin-bottom: 0.75rem;
+}
+
+.cutName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-bottom: 0.5rem;
+}
+
+.cutPrice {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sectionCta {
+  text-align: center;
+}
+
+/* ── How It Works ──────────────────────────── */
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
 }
 
 .stepCard {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  padding: 2.5rem 2rem 2rem;
+  padding: 2.5rem 1.75rem 2rem;
   border-radius: var(--radius);
-  box-shadow: var(--card-shadow);
   text-align: center;
   position: relative;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s, border-color 0.25s;
 }
-
 .stepCard:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border-color: rgba(255,255,255,0.14);
 }
 
-.stepIcon {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
-}
+.stepIcon { font-size: 2.25rem; margin-bottom: 0.75rem; }
 
 .stepNumber {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(196, 69, 54, 0.08);
+  width: 28px;
+  height: 28px;
+  background: var(--primary-light);
   color: var(--primary);
   border-radius: 50%;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 800;
+  font-size: 0.78rem;
   margin-bottom: 1rem;
 }
 
 .stepCard h3 {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: var(--text);
   margin-bottom: 0.75rem;
 }
 
 .stepCard p {
-  font-size: 0.9rem;
+  font-size: 0.87rem;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
+}
+
+/* ── CTA Banner ────────────────────────────── */
+.ctaBanner {
+  margin: 0 auto 6rem;
+  padding: 0 var(--spacing);
+  max-width: 1200px;
+}
+
+.ctaBannerInner {
+  background: linear-gradient(135deg, rgba(193, 41, 46, 0.18) 0%, rgba(31, 77, 56, 0.15) 100%);
+  border: 1px solid rgba(193, 41, 46, 0.25);
+  border-radius: 24px;
+  padding: 4rem 3rem;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+.ctaBannerInner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% -10%, rgba(193,41,46,0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.ctaBannerInner h2 { margin-bottom: 0.75rem; }
+.ctaBannerInner p {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* ── Responsive ────────────────────────────── */
+@media (max-width: 1024px) {
+  .cutsGrid { grid-template-columns: repeat(2, 1fr); }
+  .stepsGrid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-  .hero {
-    padding: 3rem 1rem 2rem;
-  }
-
-  .hero h1 {
-    font-size: 2rem;
-  }
-
-  .hero p {
-    font-size: 1rem;
-  }
+  .hero { padding: 4rem 1.5rem 3rem; }
 
   .ctaGroup {
     flex-direction: column;
@@ -176,26 +282,15 @@
   .trustBar {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
+    margin-bottom: 4rem;
   }
 
-  .trustValue {
-    font-size: 1.4rem;
-  }
+  .cutsGrid { grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
+  .stepsGrid { grid-template-columns: 1fr; }
 
-  .section {
-    padding: 2rem 1rem;
-  }
+  .ctaBannerInner { padding: 2.5rem 1.5rem; }
+}
 
-  .sectionHeader h2 {
-    font-size: 1.6rem;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .stepCard {
-    padding: 1.5rem 1.25rem 1.25rem;
-  }
+@media (max-width: 480px) {
+  .cutsGrid { grid-template-columns: 1fr; }
 }

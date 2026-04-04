@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Hexad Market",
-  description: "Send home the taste of love. Premium meat delivery service.",
+  title: "MeatLink Zimbabwe — Premium Meat Delivery to Harare",
+  description: "Send premium, fresh meat hampers to your family in Harare. Delivered weekly. Trusted by the diaspora since 2024.",
 };
 
 import Navbar from "@/components/layout/Navbar";
