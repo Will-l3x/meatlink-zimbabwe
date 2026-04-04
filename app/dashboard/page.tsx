@@ -110,25 +110,6 @@ export default function DashboardPage() {
 
             {/* Stats Cards */}
             <div className={styles.stats}>
-                <div className={`${styles.card} ${styles.walletCard}`}>
-                    <span className={styles.label}>Wallet Balances</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', margin: '0.75rem 0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇺🇸 USD</span>
-                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>${(user?.walletUSD || 0).toFixed(2)}</span>
-                        </div>
-                        <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇿🇦 ZAR</span>
-                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>R{(user?.walletZAR || 0).toFixed(2)}</span>
-                        </div>
-                        <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>🇬🇧 GBP</span>
-                            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--foreground)' }}>£{(user?.walletGBP || 0).toFixed(2)}</span>
-                        </div>
-                    </div>
-                    <Button fullWidth href="/top-up">Top Up Funds</Button>
-                </div>
-
                 <div className={`${styles.card} ${styles.deliveryCard}`}>
                     <div className={styles.status}>
                         {deliveries.length > 0 ? 'ACTIVE SUBSCRIPTION' : 'NO ACTIVE SUBSCRIPTION'}
@@ -146,11 +127,12 @@ export default function DashboardPage() {
                     ) : (
                         <>
                             <div style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0.5rem 0', color: 'var(--text)' }}>
-                                No active subscription yet
+                                No active order yet
                             </div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                Add a recipient below, then visit the shop to start feeding your family.
+                                Browse the shop and place an order to start feeding your family.
                             </div>
+                            <Button href="/shop" style={{ marginTop: '1rem' }}>Shop Premium Cuts →</Button>
                         </>
                     )}
                 </div>
@@ -329,11 +311,32 @@ export default function DashboardPage() {
                         borderRadius: '12px',
                         border: '1px solid var(--card-border)'
                     }}>
-                        <h4 style={{ color: 'var(--secondary)', marginBottom: '0.5rem' }}>Need Help?</h4>
+                        <h4 style={{ color: 'var(--foreground)', marginBottom: '0.5rem' }}>Need Help? 💬</h4>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
                             Chat with our Harare logistics team via WhatsApp for real-time delivery updates.
                         </p>
-                        <Button variant="secondary" fullWidth style={{ marginTop: '1rem' }}>WhatsApp Us</Button>
+                        <a
+                            href={`https://wa.me/263782154206?text=${encodeURIComponent('Hi! I need help with my MeatLink Zimbabwe order.')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                marginTop: '1rem',
+                                padding: '0.75rem',
+                                background: '#25D366',
+                                color: '#fff',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                textDecoration: 'none',
+                                transition: 'opacity 0.15s'
+                            }}
+                        >
+                            💬 WhatsApp Us
+                        </a>
                     </div>
                 </div>
             </div>
