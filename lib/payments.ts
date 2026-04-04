@@ -8,7 +8,7 @@ import * as https from 'https';
  * - POST /payments/initiate-transaction → Creates a payment, returns paymentUrl
  * - GET  /payments/transaction/{ref}/status/check → Polls payment status
  * - POST /payments/ecocash-payment → Direct Ecocash payment
- * - POST /payments/innbucks-payment → Direct InnBucks payments
+ * - POST /payments/innbucks-payment → Direct InnBucks payments to go
  */
 
 // ZB API Configuration
@@ -105,7 +105,7 @@ export const paymentService = {
                 const payload = { ...request, orderReference: currentOrderRef };
 
                 const payloadStr = JSON.stringify(payload);
-                
+
                 // Use https.request instead of fetch to bypass Next.js header sanitization
                 const url = new URL(`${ZB_CONFIG.apiUrl}/payments/payment-request/initiate-transaction`);
                 const options = {
@@ -116,13 +116,13 @@ export const paymentService = {
                     }
                 };
 
-                const responseData = await new Promise<{status: number, data: any, raw: string}>((resolve, reject) => {
+                const responseData = await new Promise<{ status: number, data: any, raw: string }>((resolve, reject) => {
                     const req = https.request(url, options, (res) => {
                         let raw = '';
                         res.on('data', chunk => raw += chunk);
                         res.on('end', () => {
                             let parsed = null;
-                            try { parsed = JSON.parse(raw); } catch (e) {}
+                            try { parsed = JSON.parse(raw); } catch (e) { }
                             resolve({ status: res.statusCode || 500, data: parsed, raw });
                         });
                     });
