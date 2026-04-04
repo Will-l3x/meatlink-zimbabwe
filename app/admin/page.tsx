@@ -262,7 +262,7 @@ export default function AdminPage() {
                 <div className={styles.sidebarLogo}>
                     <span className={styles.logoIcon}>🥩</span>
                     <div>
-                        <div className={styles.logoTitle}>Hexad</div>
+                        <div className={styles.logoTitle}>MeatLink</div>
                         <div className={styles.logoSub}>Admin Panel</div>
                     </div>
                 </div>
@@ -296,7 +296,7 @@ export default function AdminPage() {
                         <header className={styles.pageHeader}>
                             <div>
                                 <h1>Command Center</h1>
-                                <p className={styles.subtitle}>Real-time overview of Hexad Market operations</p>
+                                <p className={styles.subtitle}>Real-time overview of MeatLink Zimbabwe operations</p>
                             </div>
                             <button className={styles.refreshBtn} onClick={() => { setLoading(true); fetchData(); }}>
                                 🔄 Refresh
@@ -433,9 +433,6 @@ export default function AdminPage() {
                                     <tr>
                                         <th>User</th>
                                         <th>Role</th>
-                                        <th>USD</th>
-                                        <th>ZAR</th>
-                                        <th>GBP</th>
                                         <th>Joined</th>
                                     </tr>
                                 </thead>
@@ -458,9 +455,6 @@ export default function AdminPage() {
                                                     {user.role}
                                                 </span>
                                             </td>
-                                            <td style={{ fontWeight: 700 }}>${user.walletUSD.toFixed(2)}</td>
-                                            <td style={{ fontWeight: 700 }}>R{user.walletZAR.toFixed(2)}</td>
-                                            <td style={{ fontWeight: 700 }}>£{user.walletGBP.toFixed(2)}</td>
                                             <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{formatShortDate(user.createdAt)}</td>
                                         </tr>
                                     ))}
