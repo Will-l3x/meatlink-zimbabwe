@@ -167,6 +167,7 @@ export default function ShopPage() {
     const [filter, setFilter] = useState<FilterType>('all');
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addedMessage, setAddedMessage] = useState('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     // Load cart from localStorage
     useEffect(() => {
@@ -195,6 +196,14 @@ export default function ShopPage() {
 
     const removeFromCart = (id: string) => {
         setCart(prev => prev.filter(item => item.id !== id));
+    };
+
+    const updateKg = (id: string, kg: number) => {
+        if (kg <= 0) {
+            removeFromCart(id);
+            return;
+        }
+        setCart(prev => prev.map(item => item.id === id ? { ...item, kg } : item));
     };
 
     const getCartTotal = () => cart.reduce((sum, item) => sum + (item.pricing.usd * item.kg), 0);
@@ -263,29 +272,77 @@ export default function ShopPage() {
                 </div>
             )}
 
-            {/* Floating Cart Bar */}
+            {/* Floating View Cart Button */}
             {cart.length > 0 && (
-                <div className={styles.cartBar}>
-                    <div className={styles.cartInfo}>
-                        <div className={styles.cartSummary}>
-                            <span className={styles.cartIcon}>🛒</span>
-                            <span className={styles.cartCount}>{cart.length} {cart.length === 1 ? 'item' : 'items'} · {getCartKg()}kg</span>
-                        </div>
-                        <span className={styles.cartTotal}>${getCartTotal().toFixed(2)}</span>
-                    </div>
-                    <div className={styles.cartItems}>
-                        {cart.map(item => (
-                            <div key={item.id} className={styles.cartItem}>
-                                <span>{item.title} ({item.kg}kg)</span>
-                                <button className={styles.removeBtn} onClick={() => removeFromCart(item.id)}>✕</button>
-                            </div>
-                        ))}
-                    </div>
-                    <button className={styles.checkoutBtn} onClick={goToCheckout}>
-                        Proceed to Checkout — ${getCartTotal().toFixed(2)}
-                    </button>
-                </div>
+                <button className={styles.viewCartPill} onClick={() => setDrawerOpen(true)}>
+                    🛒
+                    <span className={styles.pillText}>View Cart</span>
+                    <span className={styles.pillBadge}>{cart.length}</span>
+                </button>
             )}
+
+            {/* Cart Drawer Overlay */}
+            {drawerOpen && (
+                <div className={styles.drawerOverlay} onClick={() => setDrawerOpen(false)} />
+            )}
+
+            {/* Cart Drawer */}
+            <div className={`${styles.cartDrawer} ${drawerOpen ? styles.cartDrawerOpen : ''}`}>
+                <div className={styles.drawerHeader}>
+                    <h2 className={styles.drawerTitle}>Your Cart</h2>
+                    <button className={styles.drawerClose} onClick={() => setDrawerOpen(false)}>✕</button>
+                </div>
+
+                <div className={styles.drawerItems}>
+                    {cart.length === 0 ? (
+                        <div className={styles.drawerEmpty}>
+                            <span>🛒</span>
+                            <p>Your cart is empty</p>
+                        </div>
+                    ) : (
+                        cart.map(item => (
+                            <div key={item.id} className={styles.drawerItem}>
+                                <div className={styles.drawerItemInfo}>
+                                    <span className={styles.drawerItemName}>{item.title}</span>
+                                    <span className={styles.drawerItemPrice}>
+                                        ${(item.pricing.usd * item.kg).toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className={styles.drawerItemControls}>
+                                    <button
+                                        className={styles.kgBtn}
+                                        onClick={() => updateKg(item.id, item.kg - 1)}
+                                    >−</button>
+                                    <span className={styles.kgValue}>{item.kg}kg</span>
+                                    <button
+                                        className={styles.kgBtn}
+                                        onClick={() => updateKg(item.id, item.kg + 1)}
+                                    >+</button>
+                                    <button
+                                        className={styles.removeItemBtn}
+                                        onClick={() => removeFromCart(item.id)}
+                                    >🗑</button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {cart.length > 0 && (
+                    <div className={styles.drawerFooter}>
+                        <div className={styles.drawerTotal}>
+                            <span>{getCartKg()}kg · {cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+                            <span className={styles.drawerTotalPrice}>${getCartTotal().toFixed(2)}</span>
+                        </div>
+                        <button className={styles.drawerCheckoutBtn} onClick={goToCheckout}>
+                            Proceed to Checkout →
+                        </button>
+                        <button className={styles.drawerContinueBtn} onClick={() => setDrawerOpen(false)}>
+                            Continue Shopping
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
