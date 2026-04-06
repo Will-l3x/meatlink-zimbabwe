@@ -119,8 +119,7 @@ export async function POST(request: Request) {
         // 7. Trigger WhatsApp notification to recipient
         await whatsappService.sendMessage({
             to: recipientWhatsApp,
-            type: 'RECEIVER_HEADS_UP',
-            params: { recipientName, senderName }
+            text: `Hi ${recipientName}! 🍗 Your meat pack from ${senderName} is arriving today between 10 AM and 12 PM. Please ensure someone is home to receive it. Thank you for using Hexad Market!`
         });
 
         return NextResponse.json({

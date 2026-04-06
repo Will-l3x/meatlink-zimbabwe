@@ -11,9 +11,8 @@ export async function POST(request: Request) {
 
         // 2. Trigger WhatsApp Proof-of-Love to Sender
         await whatsappService.sendMessage({
-            to: '+0000000000', // Senders real number would be here
-            type: 'SENDER_PROOF_OF_LOVE',
-            params: { recipientName, photoUrl }
+            to: '+0000000000',
+            text: `Good news! Your family's weekly meat pack has been delivered to ${recipientName}. ✅ Thank you for using Hexad Market!`
         });
 
         return NextResponse.json({

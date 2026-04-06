@@ -2,34 +2,32 @@ import https from 'https';
 
 /**
  * WhatsApp Business API Service (Meta Cloud API)
+ * Sends messages via the Meta Graph API.
  */
-
-type MessageType = 'RECEIVER_HEADS_UP' | 'SENDER_PROOF_OF_LOVE' | 'OTP' | 'MENU_GREETING' | 'HAMPER_LIST' | 'ORDER_CONFIRMATION' | 'PAYMENT_LINK';
 
 interface SendMessageOptions {
     to: string;
-    type?: MessageType;
     text?: string;
-    template?: string;
-    params?: Record<string, string>;
     interactive?: any;
 }
-
-const API_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const API_VERSION = 'v20.0';
 
 export const whatsappService = {
     /**
      * Send a WhatsApp message using the Meta Cloud API
      */
-    async sendMessage(options: SendMessageOptions) {
-        const { to, type, text, interactive } = options;
+    async sendMessage(options: SendMessageOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        // Read env vars at call time (not module load time) for serverless compatibility
+        const API_TOKEN = process.env.WHATSAPP_TOKEN;
+        const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+        const API_VERSION = 'v20.0';
 
-        let payload: any = {
+        const { to, text, interactive } = options;
+        const cleanNumber = to.replace(/\D/g, '');
+
+        const payload: any = {
             messaging_product: "whatsapp",
             recipient_type: "individual",
-            to: to.replace(/\D/g, ''), // Ensure numbers only
+            to: cleanNumber,
         };
 
         if (interactive) {
@@ -37,24 +35,23 @@ export const whatsappService = {
             payload.interactive = interactive;
         } else if (text) {
             payload.type = "text";
-            payload.text = { body: text };
-        } else if (type) {
-            // For template messages or pre-defined logic
-            const content = this.getTemplate(type, options.params || {});
-            payload.type = "text";
-            payload.text = { body: content };
+            payload.text = { preview_url: false, body: text };
+        } else {
+            console.warn('[WhatsApp API] No text or interactive content provided');
+            return { success: false, error: 'No message content' };
         }
 
-        console.log(`[WhatsApp API] Sending message to ${to}...`);
-
+        // If credentials are missing, log and return (don't crash)
         if (!API_TOKEN || !PHONE_NUMBER_ID) {
-            console.warn('[WhatsApp API] Missing WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID. Logging to console instead.');
-            console.log(`[WhatsApp API] Payload:`, JSON.stringify(payload, null, 2));
-            return { success: true, messageId: 'mock_id', status: 'mock_sent' };
+            console.error(`[WhatsApp API] ❌ MISSING CREDENTIALS - Token: ${API_TOKEN ? 'SET' : 'MISSING'}, PhoneID: ${PHONE_NUMBER_ID ? 'SET' : 'MISSING'}`);
+            console.log(`[WhatsApp API] Would have sent to ${cleanNumber}:`, text?.slice(0, 100));
+            return { success: false, error: 'WhatsApp credentials not configured' };
         }
 
-        return new Promise((resolve, reject) => {
-            const data = JSON.stringify(payload);
+        console.log(`[WhatsApp API] Sending to ${cleanNumber} via ${PHONE_NUMBER_ID}...`);
+
+        return new Promise((resolve) => {
+            const body = JSON.stringify(payload);
             const reqOptions = {
                 hostname: 'graph.facebook.com',
                 port: 443,
@@ -63,7 +60,7 @@ export const whatsappService = {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${API_TOKEN}`,
-                    'Content-Length': data.length
+                    'Content-Length': Buffer.byteLength(body)
                 }
             };
 
@@ -74,47 +71,32 @@ export const whatsappService = {
                     try {
                         const json = JSON.parse(responseData);
                         if (res.statusCode === 200) {
-                            console.log(`[WhatsApp API] ✅ Message sent to ${to}`);
-                            resolve({ success: true, messageId: json.messages?.[0]?.id, status: 'sent' });
+                            console.log(`[WhatsApp API] ✅ Sent to ${cleanNumber}, msgId: ${json.messages?.[0]?.id}`);
+                            resolve({ success: true, messageId: json.messages?.[0]?.id });
                         } else {
-                            console.error(`[WhatsApp API] ❌ API Error:`, json);
-                            resolve({ success: false, error: json.error?.message || 'Unknown error' });
+                            console.error(`[WhatsApp API] ❌ HTTP ${res.statusCode}:`, JSON.stringify(json));
+                            resolve({ success: false, error: json.error?.message || `HTTP ${res.statusCode}` });
                         }
                     } catch (e) {
-                        reject(new Error('Failed to parse WhatsApp API response'));
+                        console.error(`[WhatsApp API] ❌ Parse error. Raw response:`, responseData.slice(0, 500));
+                        resolve({ success: false, error: 'Failed to parse API response' });
                     }
                 });
             });
 
             req.on('error', (error) => {
-                console.error(`[WhatsApp API] ❌ Connection error:`, error);
-                reject(error);
+                console.error(`[WhatsApp API] ❌ Network error:`, error.message);
+                resolve({ success: false, error: error.message });
             });
 
-            req.write(data);
+            req.setTimeout(15000, () => {
+                console.error(`[WhatsApp API] ❌ Timeout after 15s`);
+                req.destroy();
+                resolve({ success: false, error: 'Request timed out' });
+            });
+
+            req.write(body);
             req.end();
         });
-    },
-
-    /**
-     * Generate content for simple text messages
-     */
-    getTemplate(type: MessageType, params: Record<string, string>): string {
-        switch (type) {
-            case 'RECEIVER_HEADS_UP':
-                return `Hi ${params.recipientName}! 🍗 Your meat pack from ${params.senderName} is arriving today between 10 AM and 12 PM. Please ensure someone is home to receive it. Thank you for using Hexad Market!`;
-
-            case 'SENDER_PROOF_OF_LOVE':
-                return `Good news! Your family's weekly meat pack has been delivered to ${params.recipientName}. ✅ Thank you for using Hexad Market!`;
-
-            case 'MENU_GREETING':
-                return `Welcome to Hexad Market! 🥩 Feeding families in Harare with love from the Diaspora.\n\nReply with a number:\n1. 🛍️ Shop Meat Packs\n2. 🚚 Track Order\n3. 💬 Talk to Support`;
-
-            case 'ORDER_CONFIRMATION':
-                return `Order Received! ✅ We are processing your request for ${params.hamperName}. We'll notify you once it's out for delivery.`;
-
-            default:
-                return '';
-        }
     }
 };
