@@ -153,10 +153,11 @@ export const chatbotService = {
 
                 case 'RECIPIENT_ADDRESS':
                     data.recipientAddress = text.trim();
-                    // Show suburbs as numbered list
+                    // Show suburbs as numbered list with custom option
                     let suburbList = "*Select a suburb:*\n\n";
                     SUBURBS.forEach((s, i) => { suburbList += `${i + 1}. ${s}\n`; });
-                    suburbList += "\nReply with the *number* of the suburb.";
+                    suburbList += `\n*${SUBURBS.length + 1}.* Other (type your own)\n`;
+                    suburbList += "\nReply with the *number*, or just *type your suburb name* if it's not listed.";
                     await this.send(from, suburbList);
                     await this.updateSession(from, 'RECIPIENT_SUBURB', data);
                     break;
@@ -166,34 +167,19 @@ export const chatbotService = {
                     let suburb = '';
                     if (!isNaN(subIdx) && subIdx >= 0 && subIdx < SUBURBS.length) {
                         suburb = SUBURBS[subIdx];
-                    } else {
-                        suburb = SUBURBS.find(s => s.toLowerCase().includes(clean)) || '';
-                    }
-                    if (!suburb) {
-                        await this.send(from, "I didn't find that suburb. Please reply with a *number* from the list.");
+                    } else if (!isNaN(subIdx) && subIdx === SUBURBS.length) {
+                        // User chose "Other" — ask them to type it
+                        await this.send(from, "Please type your suburb name:");
+                        await this.updateSession(from, 'RECIPIENT_SUBURB_CUSTOM', data);
                         return;
+                    } else {
+                        // Try matching by name first, otherwise accept as custom suburb
+                        const matched = SUBURBS.find(s => s.toLowerCase().includes(clean));
+                        suburb = matched || text.trim();
                     }
                     data.recipientSuburb = suburb;
 
-                    // Show final order summary
-                    const cartTotal = data.cart.reduce((s: number, i: any) => s + i.price * i.kg, 0);
-                    const totalKg = data.cart.reduce((s: number, i: any) => s + i.kg, 0);
-                    const itemLines = data.cart.map((i: any) => `  • ${i.title} — ${i.kg}kg × $${i.price.toFixed(2)} = $${(i.price * i.kg).toFixed(2)}`).join('\n');
-
-                    const summary =
-                        `*🧾 Order Summary*\n\n` +
-                        `${itemLines}\n\n` +
-                        `*Total:* ${totalKg}kg — *$${cartTotal.toFixed(2)} USD*\n` +
-                        `*Delivery:* FREE 🚚\n\n` +
-                        `*📦 Delivering to:*\n` +
-                        `${data.recipientName}\n` +
-                        `📱 ${data.recipientWhatsApp}\n` +
-                        `📍 ${data.recipientAddress}, ${suburb}\n\n` +
-                        `Reply *PAY* to get your payment link\n` +
-                        `Reply *EDIT* to change details\n` +
-                        `Reply *CANCEL* to start over`;
-
-                    await this.send(from, summary);
+                    await this.sendOrderSummary(from, data);
                     await this.updateSession(from, 'CONFIRMING', data);
                     break;
 
@@ -201,7 +187,6 @@ export const chatbotService = {
                     if (clean === 'pay' || clean === 'confirm') {
                         await this.send(from, "💳 Generating your secure payment link...");
                         await this.handlePayment(from, data);
-                        await this.updateSession(from, 'START', { cart: [] });
                     } else if (clean === 'edit') {
                         await this.send(from, "Let's start the delivery details again.\n\nPlease type the *recipient's full name*:");
                         await this.updateSession(from, 'RECIPIENT_NAME', data);
@@ -212,6 +197,28 @@ export const chatbotService = {
                         await this.updateSession(from, 'MENU', data);
                     } else {
                         await this.send(from, "Reply *PAY* to confirm, *EDIT* to change details, or *CANCEL* to start over.");
+                    }
+                    break;
+
+                case 'RECIPIENT_SUBURB_CUSTOM':
+                    // User is typing a custom suburb
+                    data.recipientSuburb = text.trim();
+                    // Fall through to order summary (same as end of RECIPIENT_SUBURB)
+                    await this.sendOrderSummary(from, data);
+                    await this.updateSession(from, 'CONFIRMING', data);
+                    break;
+
+                case 'PAYMENT_RETRY':
+                    if (clean === 'retry' || clean === 'pay') {
+                        await this.send(from, "💳 Retrying payment link generation...");
+                        await this.handlePayment(from, data);
+                    } else if (clean === 'cancel') {
+                        data.cart = [];
+                        await this.send(from, "❌ Order cancelled. Let me show you the menu again.");
+                        await this.sendMainMenu(from, contactName);
+                        await this.updateSession(from, 'MENU', data);
+                    } else {
+                        await this.send(from, "Reply *RETRY* to try the payment again, or *CANCEL* to start over.");
                     }
                     break;
 
@@ -277,6 +284,27 @@ export const chatbotService = {
         await this.send(to, msg);
     },
 
+    async sendOrderSummary(to: string, data: any) {
+        const cartTotal = data.cart.reduce((s: number, i: any) => s + i.price * i.kg, 0);
+        const totalKg = data.cart.reduce((s: number, i: any) => s + i.kg, 0);
+        const itemLines = data.cart.map((i: any) => `  • ${i.title} — ${i.kg}kg × $${i.price.toFixed(2)} = $${(i.price * i.kg).toFixed(2)}`).join('\n');
+
+        const summary =
+            `*🧾 Order Summary*\n\n` +
+            `${itemLines}\n\n` +
+            `*Total:* ${totalKg}kg — *$${cartTotal.toFixed(2)} USD*\n` +
+            `*Delivery:* FREE 🚚\n\n` +
+            `*📦 Delivering to:*\n` +
+            `${data.recipientName}\n` +
+            `📱 ${data.recipientWhatsApp}\n` +
+            `📍 ${data.recipientAddress}, ${data.recipientSuburb}\n\n` +
+            `Reply *PAY* to get your payment link\n` +
+            `Reply *EDIT* to change details\n` +
+            `Reply *CANCEL* to start over`;
+
+        await this.send(to, summary);
+    },
+
     async handlePayment(from: string, data: any) {
         // Find or create a guest user for this phone number
         let user = await prisma.user.findFirst({ where: { whatsappId: from } });
@@ -319,12 +347,26 @@ export const chatbotService = {
                     `Accepts: Ecocash · InnBucks · Visa/MC · Zimswitch\n\n` +
                     `We'll notify *${data.recipientName}* once the delivery is on its way! 🚚`
                 );
+                // Reset session after successful payment link
+                await this.updateSession(from, 'START', { cart: [] });
             } else {
-                await this.send(from, "😔 Sorry, I couldn't generate a payment link right now. Please try again later or visit hexad.market to complete your order.");
+                await this.send(from,
+                    `😔 Sorry, I couldn't generate a payment link right now.\n\n` +
+                    `Your order for *${description}* has been saved.\n\n` +
+                    `Reply *RETRY* to try again\n` +
+                    `Reply *CANCEL* to start over`
+                );
+                // Stay in CONFIRMING state so they can retry
+                await this.updateSession(from, 'PAYMENT_RETRY', data);
             }
         } catch (err) {
             console.error('[WhatsApp Bot] Payment error:', err);
-            await this.send(from, "😔 Something went wrong with the payment system. Please try again or visit hexad.market");
+            await this.send(from,
+                `😔 Something went wrong with the payment system.\n\n` +
+                `Reply *RETRY* to try again\n` +
+                `Reply *CANCEL* to start over`
+            );
+            await this.updateSession(from, 'PAYMENT_RETRY', data);
         }
     }
 };
