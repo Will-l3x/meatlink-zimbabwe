@@ -27,10 +27,19 @@ export const chatbotService = {
         const state = session.state;
         const data = session.data ? JSON.parse(session.data) : {};
 
+        // 1.5 Global Keywords (Allow reset at any time)
+        const cleanText = text.toLowerCase().trim();
+        const resetKeywords = ['hi', 'hello', 'hey', 'menu', 'start', 'restart', 'reset', '0'];
+        
+        if (resetKeywords.includes(cleanText) || payload === 'menu_greeting') {
+            await this.sendGreeting(from, contactName);
+            await this.updateSession(from, 'MENU', {});
+            return;
+        }
+
         // 2. State Machine Switch
         switch (state) {
             case 'START':
-                // Send Greeting & Main Menu
                 await this.sendGreeting(from, contactName);
                 await this.updateSession(from, 'MENU');
                 break;
