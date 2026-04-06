@@ -6,24 +6,31 @@ import { chatbotService } from '@/lib/chatbot';
  */
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('hub.mode');
-    const token = searchParams.get('hub.verify_token');
-    const challenge = searchParams.get('hub.challenge');
+    try {
+        const { searchParams } = new URL(request.url);
+        const mode = searchParams.get('hub.mode');
+        const token = searchParams.get('hub.verify_token');
+        const challenge = searchParams.get('hub.challenge');
 
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'hexad_market_verification';
+        console.log(`[WhatsApp Webhook] Verification Request - Mode: ${mode}, Token: ${token}, Challenge: ${challenge}`);
 
-    if (mode && token) {
+        const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'hexad_market_verification';
+
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-            console.log('[WhatsApp Webhook] ✅ Verified successfully');
-            return new Response(challenge, { status: 200 });
-        } else {
-            console.warn('[WhatsApp Webhook] ❌ Verification failed');
-            return new Response('Forbidden', { status: 403 });
+            console.log('[WhatsApp Webhook] ✅ Verification Successful');
+            // Return the challenge as plain text (no JSON, no quotes)
+            return new Response(challenge, {
+                status: 200,
+                headers: { 'Content-Type': 'text/plain' }
+            });
         }
+
+        console.warn('[WhatsApp Webhook] ❌ Verification Failed: Token mismatch or invalid mode');
+        return new Response('Verification failed', { status: 403 });
+    } catch (error) {
+        console.error('[WhatsApp Webhook] Verification Error:', error);
+        return new Response('Internal Server Error', { status: 500 });
     }
-    
-    return new Response('Bad Request', { status: 400 });
 }
 
 export async function POST(request: Request) {
