@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { paymentService } from '@/lib/payments';
 
-// Dynamic import for prisma to handle case where Payment model isn't generated yet
-let prismaClient: any = null;
+let prismaClient: Awaited<ReturnType<typeof import('@/lib/prisma').getPrisma>> | null = null;
 async function getPrisma() {
     if (!prismaClient) {
         try {
             const mod = await import('@/lib/prisma');
-            prismaClient = mod.prisma;
+            prismaClient = mod.getPrisma();
         } catch (e) {
             console.warn('[ZB Payment] Prisma not available:', e);
         }
@@ -70,8 +69,8 @@ export async function POST(request: Request) {
                 });
                 paymentId = payment.id;
                 console.log(`[ZB Payment] DB record created: ${paymentId}`);
-            } catch (dbError: any) {
-                console.warn('[ZB Payment] DB write failed (Payment model may not exist yet):', dbError.message);
+            } catch (dbError: unknown) {
+                console.warn('[ZB Payment] DB write failed (Payment model may not exist yet):', dbError instanceof Error ? dbError.message : dbError);
                 // Continue without DB — we can still call ZB API
             }
         }
@@ -139,10 +138,11 @@ export async function POST(request: Request) {
             orderReference: finalOrderRef,
         });
 
-    } catch (error: any) {
-        console.error('[ZB Payment] Error:', error.message, error.stack);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[ZB Payment] Error:', message, error instanceof Error ? error.stack : undefined);
         return NextResponse.json(
-            { success: false, error: `Failed to process ZB payment: ${error.message}` },
+            { success: false, error: `Failed to process ZB payment: ${message}` },
             { status: 500 }
         );
     }
@@ -165,12 +165,14 @@ export async function GET(request: Request) {
 
             if (zbStatus.success) {
                 const normalizedStatus = (zbStatus.status || '').toUpperCase();
-                let mappedStatus = 'PENDING';
+                let mappedStatus: 'PENDING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' = 'PENDING';
 
                 if (['SUCCESS', 'PAID', 'COMPLETED'].includes(normalizedStatus)) {
                     mappedStatus = 'COMPLETED';
                 } else if (['FAILED', 'CANCELLED'].includes(normalizedStatus)) {
                     mappedStatus = 'FAILED';
+                } else if (['EXPIRED'].includes(normalizedStatus)) {
+                    mappedStatus = 'EXPIRED';
                 }
 
                 // Try to update DB if available
@@ -251,10 +253,11 @@ export async function GET(request: Request) {
             error: 'Payment not found',
         }, { status: 404 });
 
-    } catch (error: any) {
-        console.error('[ZB Payment] Status check error:', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[ZB Payment] Status check error:', message);
         return NextResponse.json(
-            { success: false, error: `Status check failed: ${error.message}` },
+            { success: false, error: `Status check failed: ${message}` },
             { status: 500 }
         );
     }

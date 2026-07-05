@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 
 export async function POST(request: Request) {
@@ -13,13 +13,13 @@ export async function POST(request: Request) {
             senderId,
             senderName,
             hamperId,
+            hamperName,
             frequency,
             amount,
             currency,
             paymentMethod
         } = body;
 
-        // Validate required fields
         if (!recipientName || !recipientWhatsApp || !recipientAddress) {
             return NextResponse.json(
                 { success: false, error: 'Missing recipient details.' },
@@ -34,31 +34,40 @@ export async function POST(request: Request) {
             );
         }
 
-        // 1. Create or find Recipient in DB
-        const recipient = await prisma.recipient.create({
-            data: {
-                name: recipientName,
-                whatsapp: recipientWhatsApp,
-                address: recipientAddress,
-                suburb: recipientSuburb,
-            }
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Subscription service is temporarily unavailable' }, { status: 503 });
+        }
+
+        let recipient = await db.recipient.findFirst({
+            where: { whatsapp: String(recipientWhatsApp).trim() }
         });
 
-        // 2. Find or resolve hamper
-        let resolvedHamperId = hamperId;
-        const existingHamper = await prisma.hamper.findFirst({
-            where: { name: { contains: hamperId, mode: 'insensitive' } }
+        if (!recipient) {
+            recipient = await db.recipient.create({
+                data: {
+                    name: String(recipientName).trim(),
+                    whatsapp: String(recipientWhatsApp).trim(),
+                    address: String(recipientAddress).trim(),
+                    suburb: String(recipientSuburb || 'Harare').trim(),
+                }
+            });
+        }
+
+        const resolvedHamperName = String(hamperName || hamperId || 'MeatLink Hamper').trim();
+        let resolvedHamperId = String(hamperId || '').trim();
+        const existingHamper = await db.hamper.findFirst({
+            where: { name: { contains: resolvedHamperName, mode: 'insensitive' } }
         });
 
         if (!existingHamper) {
-            // Create hamper on the fly if it doesn't exist yet
-            const hamper = await prisma.hamper.create({
+            const hamper = await db.hamper.create({
                 data: {
-                    name: hamperId,
-                    description: `Meat hamper pack: ${hamperId}`,
-                    priceUSD: currency === 'USD' ? parseFloat(amount) : 0,
-                    priceZAR: currency === 'ZAR' ? parseFloat(amount) : 0,
-                    priceGBP: currency === 'GBP' ? parseFloat(amount) : 0,
+                    name: resolvedHamperName,
+                    description: `Meat hamper pack: ${resolvedHamperName}`,
+                    priceUSD: currency === 'USD' ? Number(amount) : 0,
+                    priceZAR: currency === 'ZAR' ? Number(amount) : 0,
+                    priceGBP: currency === 'GBP' ? Number(amount) : 0,
                 }
             });
             resolvedHamperId = hamper.id;
@@ -66,13 +75,11 @@ export async function POST(request: Request) {
             resolvedHamperId = existingHamper.id;
         }
 
-        // 3. Calculate next delivery (upcoming Wednesday)
         const today = new Date();
         const daysUntilWed = (3 - today.getDay() + 7) % 7 || 7;
         const nextDelivery = new Date(today.getTime() + daysUntilWed * 24 * 60 * 60 * 1000);
 
-        // 4. Create Subscription
-        const subscription = await prisma.subscription.create({
+        const subscription = await db.subscription.create({
             data: {
                 senderId,
                 recipientId: recipient.id,
@@ -82,8 +89,7 @@ export async function POST(request: Request) {
             }
         });
 
-        // 5. Auto-create a PENDING Delivery so it appears in admin Incoming immediately
-        await prisma.delivery.create({
+        await db.delivery.create({
             data: {
                 subscriptionId: subscription.id,
                 recipientId: recipient.id,
@@ -92,33 +98,30 @@ export async function POST(request: Request) {
             }
         });
 
-        // 6. Record Transaction (wallet deduction)
-        await prisma.transaction.create({
+        await db.transaction.create({
             data: {
                 userId: senderId,
-                amount: parseFloat(amount),
+                amount: Number(amount),
                 type: 'DEDUCTION',
-                description: `Subscription for ${recipientName} (${frequency})`,
+                description: `Subscription for ${recipientName} (${frequency || 'WEEKLY'})`,
                 reference: `SUB-${subscription.id.slice(-6).toUpperCase()}`
             }
         });
 
-        // 6. If paying from wallet, deduct from the correct currency balance
         if (paymentMethod === 'wallet') {
             const curr = (currency || 'USD').toUpperCase();
             const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
 
-            await prisma.user.update({
+            await db.user.update({
                 where: { id: senderId },
                 data: {
-                    [walletField]: { decrement: parseFloat(amount) }
+                    [walletField]: { decrement: Number(amount) }
                 }
             });
         }
 
-        // 7. Trigger WhatsApp notification to recipient
         await whatsappService.sendMessage({
-            to: recipientWhatsApp,
+            to: String(recipientWhatsApp).trim(),
             text: `Hi ${recipientName}! 🍗 Your meat pack from ${senderName} is arriving today between 10 AM and 12 PM. Please ensure someone is home to receive it. Thank you for using Hexad Market!`
         });
 

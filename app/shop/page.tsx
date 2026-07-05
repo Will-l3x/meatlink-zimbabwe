@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import HamperCard from '@/components/shop/HamperCard';
 import Button from '@/components/ui/Button';
+import { readStoredJson, writeStoredJson } from '@/lib/storage';
 
 interface CartItem {
     id: string;
@@ -169,15 +170,13 @@ export default function ShopPage() {
     const [addedMessage, setAddedMessage] = useState('');
     const [drawerOpen, setDrawerOpen] = useState(false);
 
-    // Load cart from localStorage
     useEffect(() => {
-        const saved = localStorage.getItem('hexad_cart');
-        if (saved) setCart(JSON.parse(saved));
+        const saved = readStoredJson<CartItem[]>('hexad_cart', []);
+        setCart(saved);
     }, []);
 
-    // Save cart to localStorage
     useEffect(() => {
-        localStorage.setItem('hexad_cart', JSON.stringify(cart));
+        writeStoredJson('hexad_cart', cart);
     }, [cart]);
 
     const addToCart = (id: string, title: string, kg: number, pricing: { usd: number; zar: number; gbp: number }) => {
@@ -210,7 +209,7 @@ export default function ShopPage() {
     const getCartKg = () => cart.reduce((sum, item) => sum + item.kg, 0);
 
     const goToCheckout = () => {
-        localStorage.setItem('hexad_cart', JSON.stringify(cart));
+        writeStoredJson('hexad_cart', cart);
         router.push('/checkout');
     };
 

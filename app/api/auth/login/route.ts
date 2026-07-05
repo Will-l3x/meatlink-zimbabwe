@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
+import { hashPassword, verifyPassword } from '@/lib/auth';
 
 export async function POST(request: Request) {
     try {
@@ -9,18 +10,30 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
         }
 
-        // Find user by email
-        const user = await prisma.user.findUnique({
-            where: { email }
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ error: 'Authentication service is temporarily unavailable' }, { status: 503 });
+        }
+
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const user = await db.user.findUnique({
+            where: { email: normalizedEmail }
         });
 
-        if (!user) {
+        if (!user || !user.password) {
             return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
         }
 
-        // In production, use bcrypt.compare(password, user.password)
-        if (user.password !== password) {
+        const passwordMatches = user.password === password || verifyPassword(password, user.password);
+        if (!passwordMatches) {
             return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+        }
+
+        if (user.password === password) {
+            await db.user.update({
+                where: { id: user.id },
+                data: { password: hashPassword(password) }
+            });
         }
 
         return NextResponse.json({

@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 
 export async function GET() {
     try {
-        // Fetch all users
-        const users = await prisma.user.findMany({
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Admin data service is unavailable' }, { status: 503 });
+        }
+
+        const users = await db.user.findMany({
             orderBy: { createdAt: 'desc' },
             select: {
                 id: true,
@@ -19,8 +23,7 @@ export async function GET() {
             }
         });
 
-        // Fetch all recipients
-        const recipients = await prisma.recipient.findMany({
+        const recipients = await db.recipient.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
                 subscriptions: {
@@ -29,8 +32,7 @@ export async function GET() {
             }
         });
 
-        // Fetch all subscriptions
-        const subscriptions = await prisma.subscription.findMany({
+        const subscriptions = await db.subscription.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
                 sender: { select: { name: true, email: true } },
@@ -38,8 +40,7 @@ export async function GET() {
             }
         });
 
-        // Fetch all transactions
-        const transactions = await prisma.transaction.findMany({
+        const transactions = await db.transaction.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
                 user: { select: { name: true } }
@@ -47,7 +48,6 @@ export async function GET() {
             take: 50
         });
 
-        // Calculate stats
         const totalRevenue = transactions
             .filter(t => t.type === 'DEPOSIT')
             .reduce((sum, t) => sum + t.amount, 0);

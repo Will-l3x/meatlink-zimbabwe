@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 
 /**
@@ -35,10 +35,15 @@ const SUBURBS = [
 export const chatbotService = {
     async handleMessage(from: string, text: string, payload?: string, contactName?: string) {
         try {
-            // 1. Find or create session
-            let session = await prisma.chatSession.findUnique({ where: { phoneNumber: from } });
+            const db = getPrisma();
+            if (!db) {
+                await whatsappService.sendMessage({ to: from, text: 'The WhatsApp service is temporarily unavailable. Please try again later.' });
+                return;
+            }
+
+            let session = await db.chatSession.findUnique({ where: { phoneNumber: from } });
             if (!session) {
-                session = await prisma.chatSession.create({ data: { phoneNumber: from, state: 'START' } });
+                session = await db.chatSession.create({ data: { phoneNumber: from, state: 'START' } });
             }
 
             const state = session.state;
@@ -241,7 +246,10 @@ export const chatbotService = {
     },
 
     async updateSession(from: string, state: string, data?: any) {
-        await prisma.chatSession.update({
+        const db = getPrisma();
+        if (!db) return;
+
+        await db.chatSession.update({
             where: { phoneNumber: from },
             data: {
                 state,
@@ -306,10 +314,15 @@ export const chatbotService = {
     },
 
     async handlePayment(from: string, data: any) {
-        // Find or create a guest user for this phone number
-        let user = await prisma.user.findFirst({ where: { whatsappId: from } });
+        const db = getPrisma();
+        if (!db) {
+            await this.send(from, 'The WhastApp payment service is temporarily unavailable. Please try again later.');
+            return;
+        }
+
+        let user = await db.user.findFirst({ where: { whatsappId: from } });
         if (!user) {
-            user = await prisma.user.create({
+            user = await db.user.create({
                 data: { name: data.recipientName || 'WhatsApp Customer', whatsappId: from, role: 'SENDER' }
             });
         }

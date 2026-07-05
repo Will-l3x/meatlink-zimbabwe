@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import styles from './Navbar.module.css';
+import { readStoredJson, removeStoredItem } from '@/lib/storage';
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -13,8 +14,8 @@ export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('hexad_user');
-        if (storedUser) setUser(JSON.parse(storedUser));
+        const storedUser = readStoredJson<{ name: string; role?: string } | null>('hexad_user', null);
+        if (storedUser) setUser(storedUser);
     }, [pathname]);
 
     useEffect(() => {
@@ -24,7 +25,7 @@ export default function Navbar() {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('hexad_user');
+        removeStoredItem('hexad_user');
         setUser(null);
         router.push('/');
     };

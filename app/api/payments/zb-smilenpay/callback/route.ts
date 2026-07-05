@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 
 /**
  * POST /api/payments/zb-smilenpay/callback
@@ -24,15 +24,19 @@ export async function POST(request: Request) {
             );
         }
 
-        // Find the payment by external ref or order reference
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Payment callback service is unavailable' }, { status: 503 });
+        }
+
         let payment = null;
         if (orderReference) {
-            payment = await prisma.payment.findFirst({
+            payment = await db.payment.findFirst({
                 where: { orderReference }
             });
         }
         if (!payment && reference) {
-            payment = await prisma.payment.findFirst({
+            payment = await db.payment.findFirst({
                 where: { externalRef: reference }
             });
         }
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
         }
 
         // Update payment record
-        await prisma.payment.update({
+        await db.payment.update({
             where: { id: payment.id },
             data: {
                 status: newStatus,
@@ -73,12 +77,12 @@ export async function POST(request: Request) {
             const curr = payment.currency.toUpperCase();
             const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
 
-            await prisma.user.update({
+            await db.user.update({
                 where: { id: payment.userId },
                 data: { [walletField]: { increment: payment.amount } }
             });
 
-            await prisma.transaction.create({
+            await db.transaction.create({
                 data: {
                     userId: payment.userId,
                     amount: payment.amount,

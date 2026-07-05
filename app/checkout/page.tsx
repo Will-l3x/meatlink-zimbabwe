@@ -4,6 +4,7 @@ import React, { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
+import { readStoredJson, writeStoredJson } from '@/lib/storage';
 
 interface CartItem {
     id: string;
@@ -33,29 +34,16 @@ function CheckoutContent() {
     const router = useRouter();
 
     const [step, setStep] = useState<Step>(1);
-    const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('hexad_cart');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed.length > 0) return parsed;
-            }
-        }
-        return [];
-    });
+    const [cartItems, setCartItems] = useState<CartItem[]>(() => readStoredJson<CartItem[]>('hexad_cart', []));
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
 
     // Saved contacts
     const [savedContacts, setSavedContacts] = useState<ContactInfo[]>(() => {
-        if (typeof window !== 'undefined') {
-            const storedUser = localStorage.getItem('hexad_user');
-            if (storedUser) {
-                const user = JSON.parse(storedUser);
-                const saved = localStorage.getItem(`hexad_recipients_${user.id}`);
-                if (saved) return JSON.parse(saved);
-            }
+        const storedUser = readStoredJson<{ id?: string } | null>('hexad_user', null);
+        if (storedUser?.id) {
+            return readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []);
         }
         return [];
     });
@@ -87,12 +75,12 @@ function CheckoutContent() {
         if (kg <= 0) {
             const updated = cartItems.filter(item => item.id !== id);
             setCartItems(updated);
-            localStorage.setItem('hexad_cart', JSON.stringify(updated));
+            writeStoredJson('hexad_cart', updated);
             return;
         }
         const updated = cartItems.map(item => item.id === id ? { ...item, kg } : item);
         setCartItems(updated);
-        localStorage.setItem('hexad_cart', JSON.stringify(updated));
+        writeStoredJson('hexad_cart', updated);
     };
 
     // ── Contacts ──────────────────────────────────────────
@@ -119,7 +107,7 @@ function CheckoutContent() {
         };
         const updated = [...savedContacts, newContact];
         setSavedContacts(updated);
-        localStorage.setItem(`hexad_recipients_${userId}`, JSON.stringify(updated));
+        writeStoredJson(`hexad_recipients_${userId}`, updated);
     };
 
     // ── Validation ────────────────────────────────────────
@@ -135,7 +123,7 @@ function CheckoutContent() {
     };
 
     const advanceToReview = () => {
-        const storedUser = localStorage.getItem('hexad_user');
+        const storedUser = window.localStorage.getItem('hexad_user');
         if (!storedUser) {
             router.push('/login');
             return;
@@ -150,7 +138,7 @@ function CheckoutContent() {
 
     // ── ZB Payment ────────────────────────────────────────
     const handlePayment = async () => {
-        const storedUser = localStorage.getItem('hexad_user');
+        const storedUser = window.localStorage.getItem('hexad_user');
         if (!storedUser) { router.push('/login'); return; }
         const user = JSON.parse(storedUser);
 
@@ -175,7 +163,7 @@ function CheckoutContent() {
             });
             const zbData = await zbRes.json();
             if (zbData.success && zbData.checkoutUrl) {
-                localStorage.setItem('hexad_pending_zb_order', JSON.stringify({
+                writeStoredJson('hexad_pending_zb_order', {
                     ...formData,
                     senderId: user.id,
                     senderName: user.name,
@@ -183,7 +171,7 @@ function CheckoutContent() {
                     amount: cartTotal,
                     currency: currency.toUpperCase(),
                     paymentId: zbData.paymentId,
-                }));
+                });
                 window.location.href = zbData.checkoutUrl;
             } else {
                 alert(zbData.error || 'Payment initiation failed. Please try again.');

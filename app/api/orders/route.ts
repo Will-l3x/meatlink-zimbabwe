@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 
-// GET: Fetch all deliveries with related data
 export async function GET() {
     try {
-        const deliveries = await prisma.delivery.findMany({
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Orders service is unavailable' }, { status: 503 });
+        }
+
+        const deliveries = await db.delivery.findMany({
             orderBy: { scheduledDate: 'asc' },
             include: {
                 recipient: true,
@@ -17,7 +21,6 @@ export async function GET() {
             }
         });
 
-        // Group by status for the Kanban view
         const incoming = deliveries.filter(d => d.status === 'PENDING');
         const onRoute = deliveries.filter(d => d.status === 'ON_ROUTE');
         const delivered = deliveries.filter(d => d.status === 'DELIVERED');
@@ -41,24 +44,25 @@ export async function GET() {
     }
 }
 
-// POST: Generate batch deliveries for next Wednesday, or update a delivery status
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { action } = body;
 
-        // --- Action: Generate next batch ---
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Orders service is unavailable' }, { status: 503 });
+        }
+
         if (action === 'generate_batch') {
-            // Find next Wednesday
             const now = new Date();
             const dayOfWeek = now.getDay();
-            const daysUntilWednesday = (3 - dayOfWeek + 7) % 7 || 7; // 3 = Wednesday
+            const daysUntilWednesday = (3 - dayOfWeek + 7) % 7 || 7;
             const nextWednesday = new Date(now);
             nextWednesday.setDate(now.getDate() + daysUntilWednesday);
             nextWednesday.setHours(9, 0, 0, 0);
 
-            // Get all active subscriptions
-            const activeSubs = await prisma.subscription.findMany({
+            const activeSubs = await db.subscription.findMany({
                 where: { isActive: true },
                 include: {
                     recipient: true,
@@ -67,13 +71,12 @@ export async function POST(request: Request) {
                 }
             });
 
-            // Check if deliveries already exist for this date
             const startOfDay = new Date(nextWednesday);
             startOfDay.setHours(0, 0, 0, 0);
             const endOfDay = new Date(nextWednesday);
             endOfDay.setHours(23, 59, 59, 999);
 
-            const existingDeliveries = await prisma.delivery.findMany({
+            const existingDeliveries = await db.delivery.findMany({
                 where: {
                     scheduledDate: {
                         gte: startOfDay,
@@ -83,12 +86,10 @@ export async function POST(request: Request) {
             });
 
             const existingSubIds = new Set(existingDeliveries.map(d => d.subscriptionId));
-
-            // Create deliveries for subscriptions that don't have one yet
             const newDeliveries = [];
             for (const sub of activeSubs) {
                 if (!existingSubIds.has(sub.id)) {
-                    const delivery = await prisma.delivery.create({
+                    const delivery = await db.delivery.create({
                         data: {
                             subscriptionId: sub.id,
                             recipientId: sub.recipientId,
@@ -118,7 +119,6 @@ export async function POST(request: Request) {
             });
         }
 
-        // --- Action: Update delivery status ---
         if (action === 'update_status') {
             const { deliveryId, status } = body;
 
@@ -126,12 +126,12 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: false, error: 'Missing deliveryId or status' }, { status: 400 });
             }
 
-            const updateData: Record<string, unknown> = { status };
+            const updateData: { status: 'PENDING' | 'ON_ROUTE' | 'DELIVERED' | 'DELAYED'; deliveredAt?: Date } = { status: status as 'PENDING' | 'ON_ROUTE' | 'DELIVERED' | 'DELAYED' };
             if (status === 'DELIVERED') {
                 updateData.deliveredAt = new Date();
             }
 
-            const updated = await prisma.delivery.update({
+            const updated = await db.delivery.update({
                 where: { id: deliveryId },
                 data: updateData,
                 include: {

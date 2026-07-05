@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MeatLink Zimbabwe
 
-## Getting Started
+This is a production-oriented Next.js app for MeatLink Zimbabwe with authentication, subscriptions, payments, admin delivery workflows, and WhatsApp integration.
 
-First, run the development server:
+## Production readiness checklist
+
+- Authentication routes now use password hashing and clear database availability errors.
+- Subscription, delivery, wallet, and payment routes now fail gracefully when the database is not configured.
+- Admin and checkout flows now rely on the API layer instead of assuming everything is available locally.
+
+## Environment variables
+
+Set these in your hosting environment before deploying:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+DATABASE_URL="mongodb+srv://..."
+PASSWORD_SALT="change-me"
+WHATSAPP_TOKEN=""
+WHATSAPP_PHONE_NUMBER_ID=""
+WHATSAPP_VERIFY_TOKEN="hexad_market_verification"
+ZB_API_KEY=""
+ZB_API_SECRET=""
+ZB_API_URL="https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway"
+ZB_SANDBOX="true"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npx prisma generate
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production build
 
-## Learn More
+```bash
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Ensure the MongoDB connection string is available at build/runtime.
+- If the WhatsApp or payment providers are not configured, the app will still boot and return clear errors instead of crashing.
+- Test the main user journeys after deployment:
+  - register/login
+  - checkout/payment return flow
+  - subscription creation
+  - admin order status updates

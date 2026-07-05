@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
     try {
@@ -10,25 +10,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Missing amount or user ID' }, { status: 400 });
         }
 
+        const db = getPrisma();
+        if (!db) {
+            return NextResponse.json({ success: false, error: 'Wallet service is temporarily unavailable' }, { status: 503 });
+        }
+
         const parsedAmount = parseFloat(amount);
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
             return NextResponse.json({ success: false, error: 'Invalid amount' }, { status: 400 });
         }
 
-        // Determine which wallet field to update based on currency
         const curr = (currency || 'USD').toUpperCase();
         const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
 
-        // Update the specific currency wallet in MongoDB
-        const updatedUser = await prisma.user.update({
+        const updatedUser = await db.user.update({
             where: { id: userId },
             data: {
                 [walletField]: { increment: parsedAmount }
             }
         });
 
-        // Record the deposit transaction
-        await prisma.transaction.create({
+        await db.transaction.create({
             data: {
                 userId,
                 amount: parsedAmount,
