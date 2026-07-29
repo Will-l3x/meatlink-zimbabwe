@@ -49,6 +49,45 @@ function parseSessionData(raw: string | null | undefined): SessionData {
     return { cart: [] };
 }
 
+function suburbSlug(name: string) {
+    return name.toLowerCase().replace(/\s+/g, '-');
+}
+
+function cutTagLabel(tag: string) {
+    const parts = tag.trim().split(/\s+/);
+    return parts[parts.length - 1] || tag;
+}
+
+function buildCutListSections(cartCount: number) {
+    const grouped = new Map<string, Array<(typeof MEAT_CUTS)[number]>>();
+    for (const cut of MEAT_CUTS) {
+        const label = cutTagLabel(cut.tag);
+        if (!grouped.has(label)) grouped.set(label, []);
+        grouped.get(label)!.push(cut);
+    }
+
+    const sections: Array<{ title: string; rows: Array<{ id: string; title: string; description: string }> }> = [];
+    for (const [title, cuts] of grouped) {
+        sections.push({
+            title: title.slice(0, 24),
+            rows: cuts.map((c) => ({
+                id: `cut_${c.id}`,
+                title: c.title.slice(0, 24),
+                description: `$${c.price.toFixed(2)}/kg`.slice(0, 72),
+            })),
+        });
+    }
+
+    if (cartCount > 0) {
+        sections.push({
+            title: 'Cart',
+            rows: [{ id: 'browse_done', title: 'Checkout', description: `${cartCount} item(s) in cart` }],
+        });
+    }
+
+    return sections;
+}
+
 export const chatbotService = {
     async handleMessage(from: string, text: string, payload?: string, contactName?: string) {
         try {
@@ -85,55 +124,78 @@ export const chatbotService = {
 
                 case 'MENU':
                     if (clean === '1' || clean.includes('shop') || clean.includes('order') || clean.includes('buy') || payload === 'menu_shop') {
-                        await this.sendCutsCatalog(from);
+                        await this.sendCutsCatalog(from, data);
                         await this.updateSession(from, 'BROWSING', data);
                     } else if (clean === '2' || clean.includes('track') || payload === 'menu_track') {
                         await this.send(from, "🚚 Order tracking is coming soon! For now, check your dashboard at hexad.market or WhatsApp us for a manual update.");
                         await this.sendMainMenu(from, contactName);
                     } else if (clean === '3' || clean.includes('support') || clean.includes('help') || payload === 'menu_support') {
                         await this.send(from, "💬 One of our human agents will get back to you shortly! You can also call us on +263 78 215 4206.");
+                        await this.sendMainMenu(from, contactName);
                     } else {
                         await this.sendMainMenu(from, contactName);
                     }
                     break;
 
                 case 'BROWSING':
-                    // Find the cut by number or name
-                    const cutIndex = parseInt(clean) - 1;
+                    if (payload === 'browse_done' || clean === 'done' || clean === 'checkout' || clean === 'pay') {
+                        if (data.cart && data.cart.length > 0) {
+                            await this.sendCartReview(from, data);
+                            await this.updateSession(from, 'CART_REVIEW', data);
+                        } else {
+                            await this.send(from, "Your cart is empty! Pick a cut from the menu first.");
+                            await this.sendCutsCatalog(from, data);
+                        }
+                        break;
+                    }
+
                     let cut = null;
-                    if (!isNaN(cutIndex) && cutIndex >= 0 && cutIndex < MEAT_CUTS.length) {
-                        cut = MEAT_CUTS[cutIndex];
-                    } else {
-                        cut = MEAT_CUTS.find(c => c.title.toLowerCase().includes(clean));
+                    if (payload?.startsWith('cut_')) {
+                        const cutId = payload.slice(4);
+                        cut = MEAT_CUTS.find((c) => c.id === cutId) || null;
+                    }
+                    if (!cut) {
+                        const cutIndex = parseInt(clean) - 1;
+                        if (!isNaN(cutIndex) && cutIndex >= 0 && cutIndex < MEAT_CUTS.length) {
+                            cut = MEAT_CUTS[cutIndex];
+                        } else {
+                            cut = MEAT_CUTS.find((c) => c.title.toLowerCase().includes(clean)) || null;
+                        }
                     }
 
                     if (cut) {
                         data.pendingCut = cut;
-                        await this.send(from, `*${cut.title}* — $${cut.price.toFixed(2)}/kg\n\nHow many kilograms would you like? (e.g. reply *2* or *5*)`);
+                        await this.sendKgPicker(from, cut);
                         await this.updateSession(from, 'SELECTING_KG', data);
-                    } else if (clean === 'done' || clean === 'checkout' || clean === 'pay') {
-                        if (data.cart && data.cart.length > 0) {
-                            await this.sendCartSummary(from, data);
-                            await this.send(from, "Reply *YES* to proceed to delivery details, or *ADD* to add more cuts.");
-                            await this.updateSession(from, 'CART_REVIEW', data);
-                        } else {
-                            await this.send(from, "Your cart is empty! Pick a cut from the list first.");
-                        }
                     } else {
-                        await this.send(from, "I didn't find that cut. Please reply with a *number* from the list (e.g. *1* for Pork Chops) or type *DONE* to checkout.");
+                        await this.send(from, "Tap *View cuts* below to choose from the menu, or *Checkout* when you're ready.");
+                        await this.sendCutsCatalog(from, data);
                     }
                     break;
 
                 case 'SELECTING_KG':
-                    const kg = parseInt(clean);
+                    let kg: number | null = null;
+                    if (payload?.startsWith('kg_')) {
+                        const kgPart = payload.slice(3);
+                        if (kgPart !== 'other') {
+                            kg = parseInt(kgPart, 10);
+                        }
+                    }
+                    if (kg === null) kg = parseInt(clean, 10);
                     if (isNaN(kg) || kg < 1 || kg > 50) {
-                        await this.send(from, "Please enter a valid number of kilograms (1-50).");
+                        const pendingForKg = data.pendingCut as { title: string; price: number } | undefined;
+                        if (pendingForKg) {
+                            await this.send(from, "Choose a weight from the list, or type a number from *1* to *50* kg.");
+                            await this.sendKgPicker(from, pendingForKg as { id: string; title: string; price: number });
+                        } else {
+                            await this.send(from, 'Please choose a valid weight (1–50 kg).');
+                        }
                         return;
                     }
                     const pendingCut = data.pendingCut as { id: string; title: string; price: number } | undefined;
                     if (!pendingCut?.id) {
                         await this.send(from, "Let's pick a cut again.");
-                        await this.sendCutsCatalog(from);
+                        await this.sendCutsCatalog(from, data);
                         await this.updateSession(from, 'BROWSING', { ...data, cart: data.cart ?? [] });
                         return;
                     }
@@ -146,26 +208,26 @@ export const chatbotService = {
                     await this.send(from,
                         `✅ Added *${kg}kg ${addedCut.title}* ($${(addedCut.price * kg).toFixed(2)})\n\n` +
                         `🛒 Cart: ${data.cart.length} item(s) · $${total.toFixed(2)}\n\n` +
-                        `Reply with another *number* to add more cuts, or type *DONE* to proceed to checkout.`
+                        `Pick another cut from the menu, or tap *Checkout* when ready.`
                     );
-                    await this.sendCutsCatalog(from);
+                    await this.sendCutsCatalog(from, data);
                     await this.updateSession(from, 'BROWSING', data);
                     break;
 
                 case 'CART_REVIEW':
-                    if (clean === 'yes' || clean === 'y' || clean === 'proceed') {
+                    if (clean === 'yes' || clean === 'y' || clean === 'proceed' || payload === 'cart_yes') {
                         await this.send(from, "📦 *Delivery Details*\n\nWho is receiving this order in Harare?\n\nPlease type the *recipient's full name*:");
                         await this.updateSession(from, 'RECIPIENT_NAME', data);
-                    } else if (clean === 'add' || clean === 'more') {
-                        await this.sendCutsCatalog(from);
+                    } else if (clean === 'add' || clean === 'more' || payload === 'cart_add') {
+                        await this.sendCutsCatalog(from, data);
                         await this.updateSession(from, 'BROWSING', data);
-                    } else if (clean === 'clear' || clean === 'cancel') {
+                    } else if (clean === 'clear' || clean === 'cancel' || payload === 'cart_clear') {
                         data.cart = [];
                         await this.send(from, "🗑 Cart cleared. Let me show you the menu again.");
                         await this.sendMainMenu(from, contactName);
                         await this.updateSession(from, 'MENU', data);
                     } else {
-                        await this.send(from, "Reply *YES* to proceed, *ADD* to add more cuts, or *CLEAR* to start over.");
+                        await this.sendCartReview(from, data);
                     }
                     break;
 
@@ -183,72 +245,74 @@ export const chatbotService = {
 
                 case 'RECIPIENT_ADDRESS':
                     data.recipientAddress = text.trim();
-                    // Show suburbs as numbered list with custom option
-                    let suburbList = "*Select a suburb:*\n\n";
-                    SUBURBS.forEach((s, i) => { suburbList += `${i + 1}. ${s}\n`; });
-                    suburbList += `\n*${SUBURBS.length + 1}.* Other (type your own)\n`;
-                    suburbList += "\nReply with the *number*, or just *type your suburb name* if it's not listed.";
-                    await this.send(from, suburbList);
+                    await this.sendSuburbPicker(from);
                     await this.updateSession(from, 'RECIPIENT_SUBURB', data);
                     break;
 
                 case 'RECIPIENT_SUBURB':
-                    const subIdx = parseInt(clean) - 1;
                     let suburb = '';
-                    if (!isNaN(subIdx) && subIdx >= 0 && subIdx < SUBURBS.length) {
-                        suburb = SUBURBS[subIdx];
-                    } else if (!isNaN(subIdx) && subIdx === SUBURBS.length) {
-                        // User chose "Other" — ask them to type it
-                        await this.send(from, "Please type your suburb name:");
+                    if (payload === 'suburb_other') {
+                        await this.send(from, 'Please type your suburb name:');
                         await this.updateSession(from, 'RECIPIENT_SUBURB_CUSTOM', data);
                         return;
-                    } else {
-                        // Try matching by name first, otherwise accept as custom suburb
-                        const matched = SUBURBS.find(s => s.toLowerCase().includes(clean));
-                        suburb = matched || text.trim();
+                    }
+                    if (payload?.startsWith('suburb_')) {
+                        const slug = payload.slice(7);
+                        suburb = SUBURBS.find((s) => suburbSlug(s) === slug) || '';
+                    }
+                    if (!suburb) {
+                        const subIdx = parseInt(clean, 10) - 1;
+                        if (!isNaN(subIdx) && subIdx >= 0 && subIdx < SUBURBS.length) {
+                            suburb = SUBURBS[subIdx];
+                        } else if (!isNaN(subIdx) && subIdx === SUBURBS.length) {
+                            await this.send(from, 'Please type your suburb name:');
+                            await this.updateSession(from, 'RECIPIENT_SUBURB_CUSTOM', data);
+                            return;
+                        } else {
+                            const matched = SUBURBS.find((s) => s.toLowerCase().includes(clean));
+                            suburb = matched || text.trim();
+                        }
                     }
                     data.recipientSuburb = suburb;
 
-                    await this.sendOrderSummary(from, data);
+                    await this.sendConfirmActions(from, data);
                     await this.updateSession(from, 'CONFIRMING', data);
                     break;
 
                 case 'CONFIRMING':
-                    if (clean === 'pay' || clean === 'confirm') {
+                    if (clean === 'pay' || clean === 'confirm' || payload === 'confirm_pay') {
                         await this.send(from, "💳 Generating your secure payment link...");
                         await this.handlePayment(from, data);
-                    } else if (clean === 'edit') {
+                    } else if (clean === 'edit' || payload === 'confirm_edit') {
                         await this.send(from, "Let's start the delivery details again.\n\nPlease type the *recipient's full name*:");
                         await this.updateSession(from, 'RECIPIENT_NAME', data);
-                    } else if (clean === 'cancel') {
+                    } else if (clean === 'cancel' || payload === 'confirm_cancel') {
                         data.cart = [];
                         await this.send(from, "❌ Order cancelled. Let me show you the menu again.");
                         await this.sendMainMenu(from, contactName);
                         await this.updateSession(from, 'MENU', data);
                     } else {
-                        await this.send(from, "Reply *PAY* to confirm, *EDIT* to change details, or *CANCEL* to start over.");
+                        await this.sendConfirmActions(from, data);
                     }
                     break;
 
                 case 'RECIPIENT_SUBURB_CUSTOM':
-                    // User is typing a custom suburb
                     data.recipientSuburb = text.trim();
-                    // Fall through to order summary (same as end of RECIPIENT_SUBURB)
-                    await this.sendOrderSummary(from, data);
+                    await this.sendConfirmActions(from, data);
                     await this.updateSession(from, 'CONFIRMING', data);
                     break;
 
                 case 'PAYMENT_RETRY':
-                    if (clean === 'retry' || clean === 'pay') {
+                    if (clean === 'retry' || clean === 'pay' || payload === 'payment_retry') {
                         await this.send(from, "💳 Retrying payment link generation...");
                         await this.handlePayment(from, data);
-                    } else if (clean === 'cancel') {
+                    } else if (clean === 'cancel' || payload === 'payment_cancel') {
                         data.cart = [];
                         await this.send(from, "❌ Order cancelled. Let me show you the menu again.");
                         await this.sendMainMenu(from, contactName);
                         await this.updateSession(from, 'MENU', data);
                     } else {
-                        await this.send(from, "Reply *RETRY* to try the payment again, or *CANCEL* to start over.");
+                        await this.sendPaymentRetryActions(from);
                     }
                     break;
 
@@ -271,6 +335,52 @@ export const chatbotService = {
         await whatsappService.sendMessage({ to, text });
     },
 
+    async sendInteractive(to: string, interactive: Record<string, unknown>) {
+        const res = await whatsappService.sendMessage({ to, interactive });
+        if (!res.success) {
+            console.warn('[WhatsApp Bot] Interactive send failed:', res.error);
+        }
+        return res.success;
+    },
+
+    async sendButtons(to: string, body: string, buttons: Array<{ id: string; title: string }>) {
+        const ok = await this.sendInteractive(to, {
+            type: 'button',
+            body: { text: body.slice(0, 1024) },
+            action: {
+                buttons: buttons.slice(0, 3).map((b) => ({
+                    type: 'reply',
+                    reply: { id: b.id, title: b.title.slice(0, 20) },
+                })),
+            },
+        });
+        if (!ok) await this.send(to, body);
+    },
+
+    async sendList(
+        to: string,
+        body: string,
+        listButtonLabel: string,
+        sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>
+    ) {
+        const ok = await this.sendInteractive(to, {
+            type: 'list',
+            body: { text: body.slice(0, 4096) },
+            action: {
+                button: listButtonLabel.slice(0, 20),
+                sections: sections.map((s) => ({
+                    title: s.title.slice(0, 24),
+                    rows: s.rows.slice(0, 10).map((r) => ({
+                        id: r.id.slice(0, 200),
+                        title: r.title.slice(0, 24),
+                        ...(r.description ? { description: r.description.slice(0, 72) } : {}),
+                    })),
+                })),
+            },
+        });
+        if (!ok) await this.send(to, body);
+    },
+
     async updateSession(from: string, state: string, data?: any) {
         const db = getPrisma();
         if (!db) return;
@@ -291,24 +401,94 @@ export const chatbotService = {
 
     async sendMainMenu(to: string, name?: string) {
         const greeting = name ? `Hi ${name}! ` : '';
-        await this.send(to,
+        const body =
             `${greeting}Welcome to *Hexad Market* 🥩\n` +
             `Feeding families in Harare with love from the Diaspora.\n\n` +
-            `What would you like to do?\n\n` +
-            `*1.* 🛍️ Shop Premium Cuts\n` +
-            `*2.* 🚚 Track My Order\n` +
-            `*3.* 💬 Talk to Support\n\n` +
-            `Reply with *1*, *2*, or *3*`
-        );
+            `What would you like to do? Tap a button below.`;
+
+        await this.sendButtons(to, body, [
+            { id: 'menu_shop', title: '🛍️ Shop cuts' },
+            { id: 'menu_track', title: '🚚 Track order' },
+            { id: 'menu_support', title: '💬 Support' },
+        ]);
     },
 
-    async sendCutsCatalog(to: string) {
-        let msg = "*🥩 Premium Cuts — Price per kg (USD)*\n\n";
-        MEAT_CUTS.forEach((c, i) => {
-            msg += `*${i + 1}.* ${c.title} — $${c.price.toFixed(2)}/kg  _${c.tag}_\n`;
-        });
-        msg += "\nReply with the *number* of the cut you want.\nType *DONE* when you're ready to checkout.";
-        await this.send(to, msg);
+    async sendCutsCatalog(to: string, data?: SessionData) {
+        const cartCount = data?.cart?.length ?? 0;
+        const body =
+            '*🥩 Premium Cuts* (USD per kg)\n\n' +
+            'Open the menu below to pick a cut.' +
+            (cartCount > 0 ? `\n\n🛒 You have *${cartCount}* item(s) in your cart.` : '');
+
+        await this.sendList(to, body, 'View cuts', buildCutListSections(cartCount));
+    },
+
+    async sendKgPicker(to: string, cut: { id: string; title: string; price: number }) {
+        const body = `*${cut.title}* — $${cut.price.toFixed(2)}/kg\n\nHow many kilograms?`;
+        const common = [1, 2, 3, 5, 10, 15, 20];
+        await this.sendList(to, body, 'Choose kg', [
+            {
+                title: 'Popular',
+                rows: common.map((n) => ({
+                    id: `kg_${n}`,
+                    title: `${n} kg`,
+                    description: `$${(cut.price * n).toFixed(2)} total`,
+                })),
+            },
+        ]);
+        await this.send(to, 'Need a different amount? Type a number from *1* to *50* kg.');
+    },
+
+    async sendCartReview(to: string, data: SessionData) {
+        await this.sendCartSummary(to, data);
+        await this.sendButtons(to, 'Ready for delivery details?', [
+            { id: 'cart_yes', title: '✅ Proceed' },
+            { id: 'cart_add', title: '➕ Add more' },
+            { id: 'cart_clear', title: '🗑 Clear cart' },
+        ]);
+    },
+
+    async sendSuburbPicker(to: string) {
+        const half = Math.ceil(SUBURBS.length / 2);
+        const first = SUBURBS.slice(0, half);
+        const second = SUBURBS.slice(half);
+        await this.sendList(to, '📍 *Delivery suburb*\n\nSelect your suburb from the list.', 'Choose suburb', [
+            {
+                title: 'Harare (1)',
+                rows: first.map((s) => ({
+                    id: `suburb_${suburbSlug(s)}`,
+                    title: s.slice(0, 24),
+                    description: 'Harare delivery',
+                })),
+            },
+            {
+                title: 'Harare (2)',
+                rows: [
+                    ...second.map((s) => ({
+                        id: `suburb_${suburbSlug(s)}`,
+                        title: s.slice(0, 24),
+                        description: 'Harare delivery',
+                    })),
+                    { id: 'suburb_other', title: 'Other suburb', description: 'Type your own' },
+                ],
+            },
+        ]);
+    },
+
+    async sendConfirmActions(to: string, data: SessionData) {
+        await this.sendOrderSummary(to, data);
+        await this.sendButtons(to, 'Confirm your order?', [
+            { id: 'confirm_pay', title: '💳 Pay now' },
+            { id: 'confirm_edit', title: '✏️ Edit details' },
+            { id: 'confirm_cancel', title: '❌ Cancel' },
+        ]);
+    },
+
+    async sendPaymentRetryActions(to: string) {
+        await this.sendButtons(to, 'Payment link could not be created. Try again?', [
+            { id: 'payment_retry', title: '🔄 Retry pay' },
+            { id: 'payment_cancel', title: '❌ Cancel' },
+        ]);
     },
 
     async sendCartSummary(to: string, data: any) {
@@ -396,20 +576,15 @@ export const chatbotService = {
             } else {
                 await this.send(from,
                     `😔 Sorry, I couldn't generate a payment link right now.\n\n` +
-                    `Your order for *${description}* has been saved.\n\n` +
-                    `Reply *RETRY* to try again\n` +
-                    `Reply *CANCEL* to start over`
+                    `Your order for *${description}* has been saved.`
                 );
-                // Stay in CONFIRMING state so they can retry
+                await this.sendPaymentRetryActions(from);
                 await this.updateSession(from, 'PAYMENT_RETRY', data);
             }
         } catch (err) {
             console.error('[WhatsApp Bot] Payment error:', err);
-            await this.send(from,
-                `😔 Something went wrong with the payment system.\n\n` +
-                `Reply *RETRY* to try again\n` +
-                `Reply *CANCEL* to start over`
-            );
+            await this.send(from, '😔 Something went wrong with the payment system.');
+            await this.sendPaymentRetryActions(from);
             await this.updateSession(from, 'PAYMENT_RETRY', data);
         }
     }
