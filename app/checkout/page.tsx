@@ -158,7 +158,15 @@ function CheckoutContent() {
                     lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
                     email: user.email || 'support@meatlink.co.zw',
                     mobilePhoneNumber: formData.recipientWhatsApp.replace(/\D/g, '').slice(-10) || '0770000000',
-                    metadata: { cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })) },
+                    metadata: {
+                        cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })),
+                        recipientName: formData.recipientName,
+                        recipientWhatsApp: formData.recipientWhatsApp,
+                        recipientAddress: formData.recipientAddress,
+                        recipientSuburb: formData.recipientSuburb,
+                        senderName: user.name,
+                        source: 'website_checkout',
+                    },
                 }),
             });
             const zbData = await zbRes.json();

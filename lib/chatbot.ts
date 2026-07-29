@@ -58,34 +58,34 @@ function cutTagLabel(tag: string) {
     return parts[parts.length - 1] || tag;
 }
 
-function buildCutListSections(cartCount: number) {
-    const grouped = new Map<string, Array<(typeof MEAT_CUTS)[number]>>();
-    for (const cut of MEAT_CUTS) {
-        const label = cutTagLabel(cut.tag);
-        if (!grouped.has(label)) grouped.set(label, []);
-        grouped.get(label)!.push(cut);
-    }
+const WHATSAPP_MAX_LIST_ROWS = 10;
 
-    const sections: Array<{ title: string; rows: Array<{ id: string; title: string; description: string }> }> = [];
-    for (const [title, cuts] of grouped) {
-        sections.push({
-            title: title.slice(0, 24),
-            rows: cuts.map((c) => ({
-                id: `cut_${c.id}`,
-                title: c.title.slice(0, 24),
-                description: `$${c.price.toFixed(2)}/kg`.slice(0, 72),
-            })),
-        });
-    }
+function getCategoryLabels(): string[] {
+    return [...new Set(MEAT_CUTS.map((c) => cutTagLabel(c.tag)))];
+}
 
-    if (cartCount > 0) {
-        sections.push({
-            title: 'Cart',
-            rows: [{ id: 'browse_done', title: 'Checkout', description: `${cartCount} item(s) in cart` }],
-        });
-    }
+function getCutsForCategory(category: string) {
+    const key = category.toUpperCase();
+    return MEAT_CUTS.filter((c) => cutTagLabel(c.tag).toUpperCase() === key);
+}
 
-    return sections;
+function categoryPayloadId(label: string) {
+    return `cat_${label.toUpperCase()}`;
+}
+
+/** WhatsApp allows max 10 rows total per list message (all sections combined). */
+function clampListSections(
+    sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>
+) {
+    let remaining = WHATSAPP_MAX_LIST_ROWS;
+    const out: typeof sections = [];
+    for (const section of sections) {
+        if (remaining <= 0) break;
+        const rows = section.rows.slice(0, remaining);
+        if (rows.length) out.push({ title: section.title, rows });
+        remaining -= rows.length;
+    }
+    return out;
 }
 
 export const chatbotService = {
@@ -124,7 +124,7 @@ export const chatbotService = {
 
                 case 'MENU':
                     if (clean === '1' || clean.includes('shop') || clean.includes('order') || clean.includes('buy') || payload === 'menu_shop') {
-                        await this.sendCutsCatalog(from, data);
+                        await this.sendCutCategoryPicker(from, data);
                         await this.updateSession(from, 'BROWSING', data);
                     } else if (clean === '2' || clean.includes('track') || payload === 'menu_track') {
                         await this.send(from, "🚚 Order tracking is coming soon! For now, check your dashboard at hexad.market or WhatsApp us for a manual update.");
@@ -144,7 +144,22 @@ export const chatbotService = {
                             await this.updateSession(from, 'CART_REVIEW', data);
                         } else {
                             await this.send(from, "Your cart is empty! Pick a cut from the menu first.");
-                            await this.sendCutsCatalog(from, data);
+                            await this.sendCutCategoryPicker(from, data);
+                        }
+                        break;
+                    }
+
+                    if (payload === 'browse_categories') {
+                        await this.sendCutCategoryPicker(from, data);
+                        break;
+                    }
+
+                    if (payload?.startsWith('cat_')) {
+                        const cat = payload.slice(4);
+                        if (getCutsForCategory(cat).length) {
+                            await this.sendCutsInCategory(from, cat, data);
+                        } else {
+                            await this.sendCutCategoryPicker(from, data);
                         }
                         break;
                     }
@@ -168,8 +183,8 @@ export const chatbotService = {
                         await this.sendKgPicker(from, cut);
                         await this.updateSession(from, 'SELECTING_KG', data);
                     } else {
-                        await this.send(from, "Tap *View cuts* below to choose from the menu, or *Checkout* when you're ready.");
-                        await this.sendCutsCatalog(from, data);
+                        await this.send(from, "Choose a *category* from the menu, or *Checkout* if your cart is ready.");
+                        await this.sendCutCategoryPicker(from, data);
                     }
                     break;
 
@@ -195,7 +210,7 @@ export const chatbotService = {
                     const pendingCut = data.pendingCut as { id: string; title: string; price: number } | undefined;
                     if (!pendingCut?.id) {
                         await this.send(from, "Let's pick a cut again.");
-                        await this.sendCutsCatalog(from, data);
+                        await this.sendCutCategoryPicker(from, data);
                         await this.updateSession(from, 'BROWSING', { ...data, cart: data.cart ?? [] });
                         return;
                     }
@@ -219,7 +234,7 @@ export const chatbotService = {
                         await this.send(from, "📦 *Delivery Details*\n\nWho is receiving this order in Harare?\n\nPlease type the *recipient's full name*:");
                         await this.updateSession(from, 'RECIPIENT_NAME', data);
                     } else if (clean === 'add' || clean === 'more' || payload === 'cart_add') {
-                        await this.sendCutsCatalog(from, data);
+                        await this.sendCutCategoryPicker(from, data);
                         await this.updateSession(from, 'BROWSING', data);
                     } else if (clean === 'clear' || clean === 'cancel' || payload === 'cart_clear') {
                         data.cart = [];
@@ -250,6 +265,10 @@ export const chatbotService = {
                     break;
 
                 case 'RECIPIENT_SUBURB':
+                    if (payload === 'suburb_page_2') {
+                        await this.sendSuburbPicker(from, 2);
+                        return;
+                    }
                     let suburb = '';
                     if (payload === 'suburb_other') {
                         await this.send(from, 'Please type your suburb name:');
@@ -258,7 +277,9 @@ export const chatbotService = {
                     }
                     if (payload?.startsWith('suburb_')) {
                         const slug = payload.slice(7);
-                        suburb = SUBURBS.find((s) => suburbSlug(s) === slug) || '';
+                        if (slug !== 'page_2') {
+                            suburb = SUBURBS.find((s) => suburbSlug(s) === slug) || '';
+                        }
                     }
                     if (!suburb) {
                         const subIdx = parseInt(clean, 10) - 1;
@@ -361,16 +382,18 @@ export const chatbotService = {
         to: string,
         body: string,
         listButtonLabel: string,
-        sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>
+        sections: Array<{ title: string; rows: Array<{ id: string; title: string; description?: string }> }>,
+        fallbackText?: string
     ) {
+        const clamped = clampListSections(sections);
         const ok = await this.sendInteractive(to, {
             type: 'list',
             body: { text: body.slice(0, 4096) },
             action: {
                 button: listButtonLabel.slice(0, 20),
-                sections: sections.map((s) => ({
+                sections: clamped.map((s) => ({
                     title: s.title.slice(0, 24),
-                    rows: s.rows.slice(0, 10).map((r) => ({
+                    rows: s.rows.map((r) => ({
                         id: r.id.slice(0, 200),
                         title: r.title.slice(0, 24),
                         ...(r.description ? { description: r.description.slice(0, 72) } : {}),
@@ -378,7 +401,7 @@ export const chatbotService = {
                 })),
             },
         });
-        if (!ok) await this.send(to, body);
+        if (!ok) await this.send(to, fallbackText || body);
     },
 
     async updateSession(from: string, state: string, data?: any) {
@@ -407,80 +430,112 @@ export const chatbotService = {
             `What would you like to do? Tap a button below.`;
 
         await this.sendButtons(to, body, [
-            { id: 'menu_shop', title: '🛍️ Shop cuts' },
-            { id: 'menu_track', title: '🚚 Track order' },
-            { id: 'menu_support', title: '💬 Support' },
+            { id: 'menu_shop', title: 'Shop cuts' },
+            { id: 'menu_track', title: 'Track order' },
+            { id: 'menu_support', title: 'Support' },
         ]);
     },
 
-    async sendCutsCatalog(to: string, data?: SessionData) {
-        const cartCount = data?.cart?.length ?? 0;
-        const body =
-            '*🥩 Premium Cuts* (USD per kg)\n\n' +
-            'Open the menu below to pick a cut.' +
-            (cartCount > 0 ? `\n\n🛒 You have *${cartCount}* item(s) in your cart.` : '');
+    /** WhatsApp allows 3 reply buttons per message — batch larger menus. */
+    async sendReplyButtonGroups(
+        to: string,
+        intro: string,
+        options: Array<{ id: string; title: string }>
+    ) {
+        if (intro.trim()) await this.send(to, intro);
+        for (let i = 0; i < options.length; i += 3) {
+            const chunk = options.slice(i, i + 3);
+            const prompt = i === 0 ? 'Choose an option:' : 'More options:';
+            await this.sendButtons(to, prompt, chunk);
+        }
+    },
 
-        await this.sendList(to, body, 'View cuts', buildCutListSections(cartCount));
+    async sendCutCategoryPicker(to: string, data?: SessionData) {
+        const cartCount = data?.cart?.length ?? 0;
+        const intro =
+            '*🥩 Premium Cuts* (USD per kg)\n\n' +
+            'Choose a category, then pick your cut.' +
+            (cartCount > 0 ? `\n\n🛒 *${cartCount}* item(s) in your cart.` : '');
+
+        const options = getCategoryLabels().map((cat) => ({
+            id: categoryPayloadId(cat),
+            title: cat.slice(0, 20),
+        }));
+
+        if (cartCount > 0) {
+            options.push({ id: 'browse_done', title: 'Checkout' });
+        }
+
+        await this.sendReplyButtonGroups(to, intro, options);
+    },
+
+    async sendCutsInCategory(to: string, category: string, data?: SessionData) {
+        const cuts = getCutsForCategory(category);
+        const intro = `*${category}* — pick a cut (USD/kg):`;
+
+        const options = cuts.map((c) => ({
+            id: `cut_${c.id}`,
+            title: c.title.slice(0, 20),
+        }));
+        options.push({ id: 'browse_categories', title: 'All categories' });
+
+        await this.sendReplyButtonGroups(to, intro, options);
+    },
+
+    /** @deprecated Use sendCutCategoryPicker */
+    async sendCutsCatalog(to: string, data?: SessionData) {
+        await this.sendCutCategoryPicker(to, data);
     },
 
     async sendKgPicker(to: string, cut: { id: string; title: string; price: number }) {
-        const body = `*${cut.title}* — $${cut.price.toFixed(2)}/kg\n\nHow many kilograms?`;
+        const intro = `*${cut.title}* — $${cut.price.toFixed(2)}/kg\n\nHow many kilograms?`;
         const common = [1, 2, 3, 5, 10, 15, 20];
-        await this.sendList(to, body, 'Choose kg', [
-            {
-                title: 'Popular',
-                rows: common.map((n) => ({
-                    id: `kg_${n}`,
-                    title: `${n} kg`,
-                    description: `$${(cut.price * n).toFixed(2)} total`,
-                })),
-            },
-        ]);
+        await this.sendReplyButtonGroups(
+            to,
+            intro,
+            common.map((n) => ({ id: `kg_${n}`, title: `${n} kg` }))
+        );
         await this.send(to, 'Need a different amount? Type a number from *1* to *50* kg.');
     },
 
     async sendCartReview(to: string, data: SessionData) {
         await this.sendCartSummary(to, data);
         await this.sendButtons(to, 'Ready for delivery details?', [
-            { id: 'cart_yes', title: '✅ Proceed' },
-            { id: 'cart_add', title: '➕ Add more' },
-            { id: 'cart_clear', title: '🗑 Clear cart' },
+            { id: 'cart_yes', title: 'Proceed' },
+            { id: 'cart_add', title: 'Add more' },
+            { id: 'cart_clear', title: 'Clear cart' },
         ]);
     },
 
-    async sendSuburbPicker(to: string) {
-        const half = Math.ceil(SUBURBS.length / 2);
-        const first = SUBURBS.slice(0, half);
-        const second = SUBURBS.slice(half);
-        await this.sendList(to, '📍 *Delivery suburb*\n\nSelect your suburb from the list.', 'Choose suburb', [
-            {
-                title: 'Harare (1)',
-                rows: first.map((s) => ({
+    async sendSuburbPicker(to: string, page: 1 | 2 = 1) {
+        if (page === 2) {
+            const suburbs = SUBURBS.slice(9);
+            const options = [
+                ...suburbs.map((s) => ({
                     id: `suburb_${suburbSlug(s)}`,
-                    title: s.slice(0, 24),
-                    description: 'Harare delivery',
+                    title: s.slice(0, 20),
                 })),
-            },
-            {
-                title: 'Harare (2)',
-                rows: [
-                    ...second.map((s) => ({
-                        id: `suburb_${suburbSlug(s)}`,
-                        title: s.slice(0, 24),
-                        description: 'Harare delivery',
-                    })),
-                    { id: 'suburb_other', title: 'Other suburb', description: 'Type your own' },
-                ],
-            },
-        ]);
+                { id: 'suburb_other', title: 'Other suburb' },
+            ];
+            await this.sendReplyButtonGroups(to, '📍 *More suburbs* — tap your area:', options);
+            return;
+        }
+
+        const firstPage = SUBURBS.slice(0, 9);
+        const options = firstPage.map((s) => ({
+            id: `suburb_${suburbSlug(s)}`,
+            title: s.slice(0, 20),
+        }));
+        await this.sendReplyButtonGroups(to, '📍 *Delivery suburb* — tap your area:', options);
+        await this.sendButtons(to, 'Not listed above?', [{ id: 'suburb_page_2', title: 'More suburbs' }]);
     },
 
     async sendConfirmActions(to: string, data: SessionData) {
         await this.sendOrderSummary(to, data);
         await this.sendButtons(to, 'Confirm your order?', [
-            { id: 'confirm_pay', title: '💳 Pay now' },
-            { id: 'confirm_edit', title: '✏️ Edit details' },
-            { id: 'confirm_cancel', title: '❌ Cancel' },
+            { id: 'confirm_pay', title: 'Pay now' },
+            { id: 'confirm_edit', title: 'Edit details' },
+            { id: 'confirm_cancel', title: 'Cancel' },
         ]);
     },
 

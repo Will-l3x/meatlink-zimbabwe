@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { paymentService } from '@/lib/payments';
+import { notifyOrderPaymentCompleted, notifyOwnerOrderPlaced } from '@/lib/order-notifications';
 
 let prismaClient: Awaited<ReturnType<typeof import('@/lib/prisma').getPrisma>> | null = null;
 async function getPrisma() {
@@ -130,6 +131,12 @@ export async function POST(request: Request) {
 
         console.log(`[ZB Payment] ✅ Session created → URL: ${zbResult.paymentUrl}`);
 
+        if (paymentId && purpose !== 'WALLET_TOPUP') {
+            notifyOwnerOrderPlaced(paymentId).catch((e) =>
+                console.error('[ZB Payment] Owner order notification failed:', e)
+            );
+        }
+
         return NextResponse.json({
             success: true,
             paymentId: paymentId || finalOrderRef,
@@ -208,6 +215,10 @@ export async function GET(request: Request) {
                                         reference: `ZB-${orderRef}`,
                                     }
                                 });
+                            }
+
+                            if (mappedStatus === 'COMPLETED' && payment.purpose === 'ORDER') {
+                                await notifyOrderPaymentCompleted(payment.id);
                             }
                         }
                     } catch (e) { /* DB not available */ }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
+import { notifyOrderPaymentCompleted } from '@/lib/order-notifications';
 
 /**
  * POST /api/payments/zb-smilenpay/callback
@@ -49,9 +50,12 @@ export async function POST(request: Request) {
             );
         }
 
-        // Skip if already processed
+        // Skip if already processed (still attempt order notifications if missed)
         if (payment.status === 'COMPLETED' || payment.status === 'FAILED') {
             console.log(`[ZB Callback] Payment ${payment.id} already ${payment.status}, skipping`);
+            if (payment.status === 'COMPLETED' && payment.purpose === 'ORDER') {
+                await notifyOrderPaymentCompleted(payment.id);
+            }
             return NextResponse.json({ success: true, message: 'Already processed' });
         }
 
@@ -93,6 +97,10 @@ export async function POST(request: Request) {
             });
 
             console.log(`[ZB Callback] Wallet credited: ${curr} ${payment.amount} for user ${payment.userId}`);
+        }
+
+        if (newStatus === 'COMPLETED' && payment.purpose === 'ORDER') {
+            await notifyOrderPaymentCompleted(payment.id);
         }
 
         return NextResponse.json({
