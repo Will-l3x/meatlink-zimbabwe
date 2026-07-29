@@ -59,6 +59,8 @@
     font-size: 1.25rem;
     margin-bottom: 0.75rem;
     color: var(--foreground);
+    font-family: var(--font-display);
+    font-weight: 600;
 }
 
 .description {

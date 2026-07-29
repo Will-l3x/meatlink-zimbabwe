@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './page.module.css';
 import HamperCard from '@/components/shop/HamperCard';
 import Button from '@/components/ui/Button';
@@ -163,8 +163,9 @@ const MEAT_CUTS = [
 
 type FilterType = 'all' | 'pork' | 'beef' | 'poultry' | 'premium' | 'specialty';
 
-export default function ShopPage() {
+function ShopPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [filter, setFilter] = useState<FilterType>('all');
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addedMessage, setAddedMessage] = useState('');
@@ -174,6 +175,14 @@ export default function ShopPage() {
         const saved = readStoredJson<CartItem[]>('hexad_cart', []);
         setCart(saved);
     }, []);
+
+    useEffect(() => {
+        const cat = searchParams.get('category')?.toLowerCase();
+        const allowed: FilterType[] = ['pork', 'beef', 'poultry', 'premium', 'specialty'];
+        if (cat && allowed.includes(cat as FilterType)) {
+            setFilter(cat as FilterType);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         writeStoredJson('hexad_cart', cart);
@@ -218,11 +227,14 @@ export default function ShopPage() {
         : MEAT_CUTS.filter(c => c.tag.toLowerCase() === filter);
 
     return (
-        <div className={styles.container}>
-            <div className={styles.header}>
-                <h1>Premium Cuts</h1>
-                <p>Fresh, quality meat delivered to your family in Harare. Pick your cuts, choose your kg.</p>
+        <div className={styles.page}>
+            <div className={styles.shopHero}>
+                <p className={styles.shopEyebrow}>Online counter</p>
+                <h1>Premium cuts</h1>
+                <p>Hand-selected meat, sold by the kilogram — delivered weekly across Harare.</p>
             </div>
+
+            <div className={styles.container}>
 
             {addedMessage && (
                 <div className={styles.addedToast}>{addedMessage}</div>
@@ -230,22 +242,22 @@ export default function ShopPage() {
 
             <div className={styles.filterBar}>
                 <Button variant={filter === 'all' ? 'primary' : 'secondary'} onClick={() => setFilter('all')}>
-                    All Cuts
+                    All
                 </Button>
                 <Button variant={filter === 'pork' ? 'primary' : 'secondary'} onClick={() => setFilter('pork')}>
-                    🐖 Pork
+                    Pork
                 </Button>
                 <Button variant={filter === 'beef' ? 'primary' : 'secondary'} onClick={() => setFilter('beef')}>
-                    🥩 Beef
+                    Beef
                 </Button>
                 <Button variant={filter === 'poultry' ? 'primary' : 'secondary'} onClick={() => setFilter('poultry')}>
-                    🍗 Poultry
+                    Poultry
                 </Button>
                 <Button variant={filter === 'premium' ? 'primary' : 'secondary'} onClick={() => setFilter('premium')}>
-                    ⭐ Premium
+                    Premium
                 </Button>
                 <Button variant={filter === 'specialty' ? 'primary' : 'secondary'} onClick={() => setFilter('specialty')}>
-                    🔥 Specialty
+                    Specialty
                 </Button>
             </div>
 
@@ -270,6 +282,7 @@ export default function ShopPage() {
                     No cuts available for this filter.
                 </div>
             )}
+            </div>
 
             {/* Floating View Cart Button */}
             {cart.length > 0 && (
@@ -343,5 +356,13 @@ export default function ShopPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function ShopPage() {
+    return (
+        <Suspense fallback={<div className={styles.page}><div className={styles.container}>Loading shop…</div></div>}>
+            <ShopPageContent />
+        </Suspense>
     );
 }

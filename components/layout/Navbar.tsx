@@ -40,14 +40,14 @@ export default function Navbar() {
 
             <nav className={styles.nav}>
                 <Link href="/" className={`${styles.link} ${isActive('/')}`}>Home</Link>
-                <Link href="/shop" className={`${styles.link} ${isActive('/shop')}`}>Shop</Link>
+                <Link href="/shop" className={`${styles.link} ${isActive('/shop')}`}>Shop Cuts</Link>
                 <Link href="/dashboard" className={`${styles.link} ${isActive('/dashboard')}`}>Dashboard</Link>
             </nav>
 
             <div className={styles.actions}>
                 {user ? (
                     <div className={styles.authLinks}>
-                        <span className={styles.userName}>👋 {user.name}</span>
+                        <span className={styles.userName}>{user.name}</span>
                         <button onClick={handleLogout} className={styles.link} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                             Log Out
                         </button>
@@ -55,7 +55,7 @@ export default function Navbar() {
                 ) : (
                     <div className={styles.authLinks}>
                         <Link href="/login" className={styles.link}>Log In</Link>
-                        <Link href="/register" className={styles.registerBtn}>Join Free</Link>
+                        <Link href="/register" className={styles.registerBtn}>Order online</Link>
                     </div>
                 )}
 

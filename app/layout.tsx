@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["500", "600", "700"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Hexad Market — Premium Meat Delivery to Harare",
-  description: "Send premium, fresh meat hampers to your family in Harare. Delivered weekly. Trusted by the diaspora since 2024.",
+  title: "Hexad Market — Premium Butcher Delivery to Harare",
+  description:
+    "Hand-selected cuts, weekly delivery to Harare. Order online for your family — trusted by the diaspora.",
 };
 
 import Navbar from "@/components/layout/Navbar";
@@ -24,11 +31,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.variable}>
+      <body className={`${fraunces.variable} ${dmSans.variable}`}>
         <Navbar />
-        <main style={{ paddingTop: '70px' }}>
-          {children}
-        </main>
+        <main style={{ paddingTop: "var(--header-height)" }}>{children}</main>
         <Footer />
         <WhatsAppButton />
       </body>
