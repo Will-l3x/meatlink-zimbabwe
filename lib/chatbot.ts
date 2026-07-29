@@ -32,6 +32,23 @@ const SUBURBS = [
     'Msasa', 'Newlands', 'Tynwald', 'Waterfalls', 'Westgate', 'Zimre Park'
 ];
 
+type SessionData = { cart: Array<{ id: string; title: string; kg: number; price: number }>; [key: string]: unknown };
+
+function parseSessionData(raw: string | null | undefined): SessionData {
+    if (!raw) return { cart: [] };
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+            const data = parsed as SessionData;
+            if (!Array.isArray(data.cart)) data.cart = [];
+            return data;
+        }
+    } catch (e) {
+        console.warn('[WhatsApp Bot] Invalid session.data JSON, resetting cart:', e);
+    }
+    return { cart: [] };
+}
+
 export const chatbotService = {
     async handleMessage(from: string, text: string, payload?: string, contactName?: string) {
         try {
@@ -41,13 +58,14 @@ export const chatbotService = {
                 return;
             }
 
-            let session = await db.chatSession.findUnique({ where: { phoneNumber: from } });
-            if (!session) {
-                session = await db.chatSession.create({ data: { phoneNumber: from, state: 'START' } });
-            }
+            const session = await db.chatSession.upsert({
+                where: { phoneNumber: from },
+                create: { phoneNumber: from, state: 'START' },
+                update: {},
+            });
 
             const state = session.state;
-            const data = session.data ? JSON.parse(session.data) : { cart: [] };
+            const data = parseSessionData(session.data);
             const clean = text.toLowerCase().trim();
 
             // ── Global resets ──
@@ -112,8 +130,15 @@ export const chatbotService = {
                         await this.send(from, "Please enter a valid number of kilograms (1-50).");
                         return;
                     }
+                    const pendingCut = data.pendingCut as { id: string; title: string; price: number } | undefined;
+                    if (!pendingCut?.id) {
+                        await this.send(from, "Let's pick a cut again.");
+                        await this.sendCutsCatalog(from);
+                        await this.updateSession(from, 'BROWSING', { ...data, cart: data.cart ?? [] });
+                        return;
+                    }
                     if (!data.cart) data.cart = [];
-                    const addedCut = data.pendingCut;
+                    const addedCut = pendingCut;
                     data.cart.push({ id: addedCut.id, title: addedCut.title, kg, price: addedCut.price });
                     delete data.pendingCut;
 
@@ -232,7 +257,8 @@ export const chatbotService = {
                     await this.updateSession(from, 'MENU', { cart: [] });
             }
         } catch (error) {
-            console.error('[WhatsApp Bot] Error in handleMessage:', error);
+            const detail = error instanceof Error ? error.message : String(error);
+            console.error(`[WhatsApp Bot] Error in handleMessage (from=${from}):`, detail, error);
             try {
                 await this.send(from, "Oops! Something went wrong. Please try again by saying *Hi*.");
             } catch (e) { /* last resort */ }
@@ -249,12 +275,17 @@ export const chatbotService = {
         const db = getPrisma();
         if (!db) return;
 
-        await db.chatSession.update({
+        await db.chatSession.upsert({
             where: { phoneNumber: from },
-            data: {
+            create: {
+                phoneNumber: from,
                 state,
                 ...(data !== undefined ? { data: JSON.stringify(data) } : {}),
-            }
+            },
+            update: {
+                state,
+                ...(data !== undefined ? { data: JSON.stringify(data) } : {}),
+            },
         });
     },
 
