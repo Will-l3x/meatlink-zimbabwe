@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { chatbotService } from '@/lib/chatbot';
+import { getPrisma } from '@/lib/prisma';
 
 /**
  * WhatsApp Webhook Handler (Meta Cloud API)
@@ -14,6 +15,26 @@ export async function GET(request: Request) {
 
         // Diagnostic mode: check if env vars are set
         if (searchParams.get('diag') === '1') {
+            const dbUrl = process.env.DATABASE_URL || '';
+            let dbHost = '';
+            const hostMatch = dbUrl.match(/mongodb(?:\+srv)?:\/\/[^@]+@([^/?]+)/);
+            if (hostMatch) dbHost = hostMatch[1];
+            else if (dbUrl) dbHost = 'unparseable';
+
+            let dbReachable = false;
+            let dbError: string | undefined;
+            const db = getPrisma();
+            if (db) {
+                try {
+                    await db.$runCommandRaw({ ping: 1 });
+                    dbReachable = true;
+                } catch (e) {
+                    dbError = e instanceof Error ? e.message.split('\n')[0] : String(e);
+                }
+            } else {
+                dbError = 'DATABASE_URL not configured';
+            }
+
             return NextResponse.json({
                 token_set: !!process.env.WHATSAPP_TOKEN,
                 token_length: process.env.WHATSAPP_TOKEN?.length || 0,
@@ -21,6 +42,9 @@ export async function GET(request: Request) {
                 phone_id: process.env.WHATSAPP_PHONE_NUMBER_ID || 'NOT SET',
                 verify_token: process.env.WHATSAPP_VERIFY_TOKEN || 'NOT SET',
                 db_url_set: !!process.env.DATABASE_URL,
+                db_host: dbHost,
+                db_reachable: dbReachable,
+                db_error: dbError,
             });
         }
 
