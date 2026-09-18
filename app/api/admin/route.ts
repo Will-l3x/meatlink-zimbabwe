@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/session';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const guard = requireAdmin(request);
+    if (guard.response) return guard.response;
+
     try {
         const db = getPrisma();
         if (!db) {

@@ -89,7 +89,7 @@ export default function RegisterPage() {
                     />
                 </div>
 
-                <Button fullWidth variant="primary">
+                <Button fullWidth variant="primary" type="submit" disabled={loading}>
                     {loading ? 'Creating Account...' : 'Sign Up'}
                 </Button>
             </form>

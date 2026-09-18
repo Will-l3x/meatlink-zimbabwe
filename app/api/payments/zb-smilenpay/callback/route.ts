@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
-import { notifyOrderPaymentCompleted } from '@/lib/order-notifications';
+import { paymentService, mapZBStatus } from '@/lib/payments';
+import { settlePayment } from '@/lib/payment-settlement';
 
 /**
  * POST /api/payments/zb-smilenpay/callback
- * Handle ZB Smile & Pay result URL callbacks.
- * ZB sends a POST to this endpoint after payment completes.
+ * ZB Smile & Pay result URL. The posted body is treated only as a hint:
+ * the final status is always re-read from ZB before anything is settled,
+ * so a forged callback cannot mark an order as paid.
  */
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        const body = await request.json().catch(() => ({}));
         console.log('[ZB Callback] Received:', JSON.stringify(body));
 
-        // ZB sends transaction data including reference, orderReference, status, amount
         const reference = body.reference || body.transactionReference;
         const orderReference = body.orderReference;
-        const status = (body.status || '').toUpperCase();
 
         if (!reference && !orderReference) {
             console.error('[ZB Callback] No reference in callback payload');
@@ -32,14 +32,10 @@ export async function POST(request: Request) {
 
         let payment = null;
         if (orderReference) {
-            payment = await db.payment.findFirst({
-                where: { orderReference }
-            });
+            payment = await db.payment.findFirst({ where: { orderReference: String(orderReference) } });
         }
         if (!payment && reference) {
-            payment = await db.payment.findFirst({
-                where: { externalRef: reference }
-            });
+            payment = await db.payment.findFirst({ where: { externalRef: String(reference) } });
         }
 
         if (!payment) {
@@ -50,65 +46,35 @@ export async function POST(request: Request) {
             );
         }
 
-        // Skip if already processed (still attempt order notifications if missed)
-        if (payment.status === 'COMPLETED' || payment.status === 'FAILED') {
-            console.log(`[ZB Callback] Payment ${payment.id} already ${payment.status}, skipping`);
-            if (payment.status === 'COMPLETED' && payment.purpose === 'ORDER') {
-                await notifyOrderPaymentCompleted(payment.id);
-            }
+        if (payment.status !== 'PENDING') {
+            console.log(`[ZB Callback] Payment ${payment.id} already ${payment.status}`);
+            // Re-run idempotent fulfilment in case it was missed earlier.
+            await settlePayment(payment.id, payment.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED', body);
             return NextResponse.json({ success: true, message: 'Already processed' });
         }
 
-        // Determine the new status
-        let newStatus: 'COMPLETED' | 'FAILED' = 'FAILED';
-        if (['SUCCESS', 'PAID', 'COMPLETED'].includes(status)) {
-            newStatus = 'COMPLETED';
+        const verifyRef = payment.orderReference || String(orderReference || '');
+        const verified = await paymentService.checkTransactionStatus(verifyRef);
+        if (!verified.success) {
+            console.warn(`[ZB Callback] Could not verify ${verifyRef} with ZB; leaving PENDING`);
+            return NextResponse.json(
+                { success: false, error: 'Could not verify transaction with ZB' },
+                { status: 202 }
+            );
         }
 
-        // Update payment record
-        await db.payment.update({
-            where: { id: payment.id },
-            data: {
-                status: newStatus,
-                callbackData: JSON.stringify(body),
-            }
-        });
-
-        console.log(`[ZB Callback] Payment ${payment.id} → ${newStatus}`);
-
-        // If completed, credit wallet for top-ups
-        if (newStatus === 'COMPLETED' && payment.purpose === 'WALLET_TOPUP') {
-            const curr = payment.currency.toUpperCase();
-            const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
-
-            await db.user.update({
-                where: { id: payment.userId },
-                data: { [walletField]: { increment: payment.amount } }
-            });
-
-            await db.transaction.create({
-                data: {
-                    userId: payment.userId,
-                    amount: payment.amount,
-                    type: 'DEPOSIT',
-                    description: `Wallet top-up via ZB Smile & Pay (${curr})`,
-                    reference: `ZB-${payment.orderReference || payment.id.slice(-6)}`,
-                }
-            });
-
-            console.log(`[ZB Callback] Wallet credited: ${curr} ${payment.amount} for user ${payment.userId}`);
+        const mapped = mapZBStatus(verified.status);
+        if (mapped === 'PENDING') {
+            return NextResponse.json({ success: true, status: 'PENDING' });
         }
 
-        if (newStatus === 'COMPLETED' && payment.purpose === 'ORDER') {
-            await notifyOrderPaymentCompleted(payment.id);
-        }
+        const settled = await settlePayment(payment.id, mapped, { callback: body, verified: verified.data });
 
         return NextResponse.json({
             success: true,
-            status: newStatus,
+            status: settled?.status ?? mapped,
             paymentId: payment.id,
         });
-
     } catch (error) {
         console.error('[ZB Callback] Error:', error);
         return NextResponse.json(

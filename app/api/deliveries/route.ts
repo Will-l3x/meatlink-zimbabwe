@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
+import { requireAdmin } from '@/lib/session';
 
+/** POST /api/deliveries — confirm a delivery (admin / driver console). */
 export async function POST(request: Request) {
+    const guard = requireAdmin(request);
+    if (guard.response) return guard.response;
+
     try {
         const body = await request.json();
-        const { deliveryId, recipientName, recipientWhatsApp, photoUrl } = body;
+        const { deliveryId, photoUrl } = body;
+
+        if (!deliveryId) {
+            return NextResponse.json({ success: false, error: 'Missing deliveryId' }, { status: 400 });
+        }
 
         const db = getPrisma();
         if (!db) {
@@ -18,18 +27,21 @@ export async function POST(request: Request) {
                 status: 'DELIVERED',
                 deliveredAt: new Date(),
                 proofOfDelivery: photoUrl || null,
-            }
+            },
+            include: { recipient: true }
         });
 
-        await whatsappService.sendMessage({
-            to: recipientWhatsApp || '+0000000000',
-            text: `Good news! Your family's weekly meat pack has been delivered to ${recipientName}. ✅ Thank you for using Hexad Market!`
-        });
+        if (updatedDelivery.recipient?.whatsapp) {
+            await whatsappService.sendMessage({
+                to: updatedDelivery.recipient.whatsapp,
+                text: `Good news! Your meat order has been delivered to ${updatedDelivery.recipient.name}. ✅ Thank you for using Hexad Market!`
+            });
+        }
 
         return NextResponse.json({
             success: true,
             delivery: updatedDelivery,
-            message: 'Delivery confirmed and sender notified.'
+            message: 'Delivery confirmed and recipient notified.'
         });
     } catch (error) {
         console.error('Delivery confirmation error:', error);

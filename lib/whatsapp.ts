@@ -8,7 +8,21 @@ import https from 'https';
 interface SendMessageOptions {
     to: string;
     text?: string;
-    interactive?: any;
+    interactive?: Record<string, unknown>;
+}
+
+interface WhatsAppPayload {
+    messaging_product: 'whatsapp';
+    recipient_type: 'individual';
+    to: string;
+    type?: 'text' | 'interactive';
+    text?: { preview_url: boolean; body: string };
+    interactive?: Record<string, unknown>;
+}
+
+interface GraphApiResponse {
+    messages?: Array<{ id?: string }>;
+    error?: { message?: string };
 }
 
 export const whatsappService = {
@@ -24,7 +38,7 @@ export const whatsappService = {
         const { to, text, interactive } = options;
         const cleanNumber = to.replace(/\D/g, '');
 
-        const payload: any = {
+        const payload: WhatsAppPayload = {
             messaging_product: "whatsapp",
             recipient_type: "individual",
             to: cleanNumber,
@@ -69,7 +83,7 @@ export const whatsappService = {
                 res.on('data', (chunk) => { responseData += chunk; });
                 res.on('end', () => {
                     try {
-                        const json = JSON.parse(responseData);
+                        const json = JSON.parse(responseData) as GraphApiResponse;
                         if (res.statusCode === 200) {
                             console.log(`[WhatsApp API] ✅ Sent to ${cleanNumber}, msgId: ${json.messages?.[0]?.id}`);
                             resolve({ success: true, messageId: json.messages?.[0]?.id });
@@ -77,7 +91,7 @@ export const whatsappService = {
                             console.error(`[WhatsApp API] ❌ HTTP ${res.statusCode}:`, JSON.stringify(json));
                             resolve({ success: false, error: json.error?.message || `HTTP ${res.statusCode}` });
                         }
-                    } catch (e) {
+                    } catch {
                         console.error(`[WhatsApp API] ❌ Parse error. Raw response:`, responseData.slice(0, 500));
                         resolve({ success: false, error: 'Failed to parse API response' });
                     }

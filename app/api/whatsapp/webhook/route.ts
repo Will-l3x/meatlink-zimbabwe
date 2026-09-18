@@ -13,8 +13,13 @@ export async function GET(request: Request) {
         const token = searchParams.get('hub.verify_token');
         const challenge = searchParams.get('hub.challenge');
 
-        // Diagnostic mode: check if env vars are set
+        const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'hexad_market_verification';
+
+        // Diagnostic mode (requires the verify token): check if env vars are set
         if (searchParams.get('diag') === '1') {
+            if (searchParams.get('token') !== VERIFY_TOKEN) {
+                return new Response('Forbidden', { status: 403 });
+            }
             const dbUrl = process.env.DATABASE_URL || '';
             let dbHost = '';
             const hostMatch = dbUrl.match(/mongodb(?:\+srv)?:\/\/[^@]+@([^/?]+)/);
@@ -39,8 +44,6 @@ export async function GET(request: Request) {
                 token_set: !!process.env.WHATSAPP_TOKEN,
                 token_length: process.env.WHATSAPP_TOKEN?.length || 0,
                 phone_id_set: !!process.env.WHATSAPP_PHONE_NUMBER_ID,
-                phone_id: process.env.WHATSAPP_PHONE_NUMBER_ID || 'NOT SET',
-                verify_token: process.env.WHATSAPP_VERIFY_TOKEN || 'NOT SET',
                 db_url_set: !!process.env.DATABASE_URL,
                 db_host: dbHost,
                 db_reachable: dbReachable,
@@ -48,9 +51,7 @@ export async function GET(request: Request) {
             });
         }
 
-        console.log(`[Webhook] Verify: mode=${mode}, token=${token}, challenge=${challenge}`);
-
-        const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'hexad_market_verification';
+        console.log(`[Webhook] Verify: mode=${mode}, challenge=${challenge}`);
 
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
             console.log('[Webhook] ✅ Verified');
@@ -103,15 +104,17 @@ export async function POST(request: Request) {
             try {
                 await chatbotService.handleMessage(from, text, payload, contact);
                 console.log(`[Webhook] ✅ Message processed successfully`);
-            } catch (botError: any) {
-                console.error(`[Webhook] ❌ Bot error:`, botError.message, botError.stack);
+            } catch (botError: unknown) {
+                const err = botError instanceof Error ? botError : new Error(String(botError));
+                console.error(`[Webhook] ❌ Bot error:`, err.message, err.stack);
             }
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('[Webhook] ❌ POST error:', error.message, error.stack);
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error('[Webhook] ❌ POST error:', err.message, err.stack);
         // Always return 200 to prevent Meta from retrying
-        return NextResponse.json({ success: false, error: error.message }, { status: 200 });
+        return NextResponse.json({ success: false, error: err.message }, { status: 200 });
     }
 }

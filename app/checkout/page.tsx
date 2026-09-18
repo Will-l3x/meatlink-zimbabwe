@@ -165,10 +165,16 @@ function CheckoutContent() {
                         recipientAddress: formData.recipientAddress,
                         recipientSuburb: formData.recipientSuburb,
                         senderName: user.name,
+                        frequency: formData.frequency,
                         source: 'website_checkout',
                     },
                 }),
             });
+            if (zbRes.status === 401) {
+                window.localStorage.removeItem('hexad_user');
+                router.push('/login');
+                return;
+            }
             const zbData = await zbRes.json();
             if (zbData.success && zbData.checkoutUrl) {
                 writeStoredJson('hexad_pending_zb_order', {
@@ -510,8 +516,8 @@ function CheckoutContent() {
                                 <span>Total ({totalKg}kg)</span>
                                 <span>{sym}{cartTotal.toFixed(2)}</span>
                             </div>
-                            <Button fullWidth onClick={handlePayment} style={{ marginTop: '1.5rem' }}>
-                                Confirm &amp; Pay {sym}{cartTotal.toFixed(2)} →
+                            <Button fullWidth onClick={handlePayment} disabled={loading} style={{ marginTop: '1.5rem' }}>
+                                {loading ? 'Connecting to ZB…' : <>Confirm &amp; Pay {sym}{cartTotal.toFixed(2)} →</>}
                             </Button>
                             <button className={styles.backBtn} onClick={() => setStep(1)}>
                                 ← Back to Delivery Details
@@ -528,7 +534,7 @@ function CheckoutContent() {
                 <div className={styles.processingScreen}>
                     <div className={styles.processingSpinner} />
                     <h2>Connecting to ZB Smile &amp; Pay...</h2>
-                    <p>Please wait. You'll be redirected to complete your payment shortly.</p>
+                    <p>Please wait. You&apos;ll be redirected to complete your payment shortly.</p>
                     <div className={styles.processingBadge}>🇿🇼 Secure ZB Bank Payment Gateway</div>
                 </div>
             )}

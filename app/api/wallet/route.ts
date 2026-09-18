@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/session';
 
+/**
+ * POST /api/wallet — manual wallet credit (admin only).
+ * Customer self-service top-ups go through ZB Smile & Pay instead.
+ */
 export async function POST(request: Request) {
+    const guard = requireAdmin(request);
+    if (guard.response) return guard.response;
+
     try {
         const body = await request.json();
         const { amount, currency, userId, provider } = body;
@@ -35,22 +43,22 @@ export async function POST(request: Request) {
                 userId,
                 amount: parsedAmount,
                 type: 'DEPOSIT',
-                description: `Wallet top-up via ${provider || 'stripe'} (${curr})`,
+                description: `Wallet credit via ${provider || 'manual adjustment'} (${curr}) by admin ${guard.session.uid}`,
                 reference: `DEP-${Date.now().toString(36).toUpperCase()}`
             }
         });
 
-        console.log(`[Wallet] ${updatedUser.name} topped up ${curr} ${parsedAmount} via ${provider}. Balances: USD=${updatedUser.walletUSD} ZAR=${updatedUser.walletZAR} GBP=${updatedUser.walletGBP}`);
+        console.log(`[Wallet] ${updatedUser.name} credited ${curr} ${parsedAmount} via ${provider || 'manual'} by admin ${guard.session.uid}`);
 
         return NextResponse.json({
             success: true,
             walletUSD: updatedUser.walletUSD,
             walletZAR: updatedUser.walletZAR,
             walletGBP: updatedUser.walletGBP,
-            message: `Successfully added ${curr} ${parsedAmount} to your wallet.`
+            message: `Successfully added ${curr} ${parsedAmount} to the wallet.`
         });
     } catch (error) {
-        console.error('Wallet top-up error:', error);
-        return NextResponse.json({ success: false, error: 'Failed to process top-up' }, { status: 500 });
+        console.error('Wallet credit error:', error);
+        return NextResponse.json({ success: false, error: 'Failed to process wallet credit' }, { status: 500 });
     }
 }

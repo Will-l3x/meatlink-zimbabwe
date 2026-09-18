@@ -1,8 +1,85 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import { readStoredJson, writeStoredJson, removeStoredItem } from '@/lib/storage';
+
+type Outcome = { status: 'processing' | 'success' | 'failed'; message: string };
+
+interface PaymentInfo {
+    id: string;
+    status: string;
+    amount?: number;
+    currency?: string;
+    purpose?: string;
+    orderReference?: string | null;
+    subscriptionId?: string | null;
+}
+
+interface PendingOrder {
+    senderId?: string;
+    recipientName?: string;
+    recipientSuburb?: string;
+    cartItems?: Array<{ title: string; kg: number }>;
+}
+
+interface StoredUser {
+    id?: string;
+    walletUSD?: number;
+    walletZAR?: number;
+    walletGBP?: number;
+    [key: string]: unknown;
+}
+
+interface LocalDelivery {
+    id: string;
+    recipientName: string;
+    date: string;
+    location: string;
+    status: string;
+    pack: string;
+}
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_ATTEMPTS = 20;
+
+/** Mirror the confirmed payment into this browser's local dashboard data. */
+function recordLocalOutcome(payment: PaymentInfo) {
+    const user = readStoredJson<StoredUser | null>('hexad_user', null);
+
+    if (payment.purpose === 'WALLET_TOPUP') {
+        if (user && payment.amount) {
+            const curr = (payment.currency || 'USD').toUpperCase();
+            const key = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+            user[key] = (Number(user[key]) || 0) + payment.amount;
+            writeStoredJson('hexad_user', user);
+        }
+        return;
+    }
+
+    const pending = readStoredJson<PendingOrder | null>('hexad_pending_zb_order', null);
+    const senderId = pending?.senderId || user?.id;
+    if (senderId) {
+        const key = `hexad_deliveries_${senderId}`;
+        const history = readStoredJson<LocalDelivery[]>(key, []);
+        const entryId = payment.subscriptionId || payment.id;
+        if (!history.some((d) => d.id === entryId)) {
+            history.unshift({
+                id: entryId,
+                recipientName: pending?.recipientName || 'Recipient',
+                date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+                location: `${pending?.recipientSuburb || 'Harare'}, Harare`,
+                status: 'Scheduled',
+                pack: pending?.cartItems?.map((i) => `${i.title} (${i.kg}kg)`).join(', ') || 'Hexad Market Order',
+            });
+            writeStoredJson(key, history);
+        }
+    }
+
+    removeStoredItem('hexad_cart');
+    removeStoredItem('hexad_pending_zb_order');
+}
 
 function ZBReturnContent() {
     const searchParams = useSearchParams();
@@ -12,123 +89,75 @@ function ZBReturnContent() {
     const orderRef = searchParams.get('orderRef') || '';
     const urlStatus = searchParams.get('status') || '';
 
-    const [paymentStatus, setPaymentStatus] = useState<'processing' | 'success' | 'failed'>('processing');
-    const [message, setMessage] = useState('Processing your payment...');
+    // Outcomes we can determine from the URL alone, without polling.
+    const urlOutcome = useMemo<Outcome | null>(() => {
+        if (urlStatus === 'cancelled') return { status: 'failed', message: 'Payment was cancelled.' };
+        if (urlStatus === 'failed') return { status: 'failed', message: 'Payment failed. Please try again.' };
+        if (!paymentId && !orderRef) return { status: 'failed', message: 'Invalid payment session. No payment reference found.' };
+        return null;
+    }, [urlStatus, paymentId, orderRef]);
+
+    const [polledOutcome, setPolledOutcome] = useState<Outcome | null>(null);
+    const view: Outcome = urlOutcome ?? polledOutcome ?? { status: 'processing', message: 'Processing your payment...' };
 
     useEffect(() => {
-        // If URL says cancelled/failed, show immediately
-        if (urlStatus === 'cancelled') {
-            setPaymentStatus('failed');
-            setMessage('Payment was cancelled.');
-            return;
-        }
-        if (urlStatus === 'failed') {
-            setPaymentStatus('failed');
-            setMessage('Payment failed. Please try again.');
-            return;
-        }
+        if (urlOutcome) return;
 
-        if (!paymentId) {
-            setPaymentStatus('failed');
-            setMessage('Invalid payment session. No payment ID found.');
-            return;
-        }
-
-        // Poll our API for status (which in turn polls ZB)
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         let attempts = 0;
-        const maxAttempts = 15;
+
+        const finish = (outcome: Outcome) => {
+            if (!cancelled) setPolledOutcome(outcome);
+        };
 
         const checkStatus = async () => {
+            if (cancelled) return;
+            attempts++;
             try {
-                const res = await fetch(`/api/payments/zb-smilenpay?paymentId=${paymentId}&orderRef=${orderRef}`);
+                const params = new URLSearchParams();
+                if (paymentId) params.set('paymentId', paymentId);
+                if (orderRef) params.set('orderRef', orderRef);
+                const res = await fetch(`/api/payments/zb-smilenpay?${params.toString()}`, { cache: 'no-store' });
                 const data = await res.json();
 
                 if (data.success && data.payment) {
-                    if (data.payment.status === 'COMPLETED') {
-                        setPaymentStatus('success');
-                        const purposeText = data.payment.purpose === 'WALLET_TOPUP'
-                            ? 'Your wallet has been topped up successfully!'
-                            : 'Your order payment has been confirmed!';
-                        setMessage(purposeText);
-
-                        // Update local storage wallet balances if it was a top-up
-                        if (data.payment.purpose === 'WALLET_TOPUP') {
-                            const storedUser = localStorage.getItem('hexad_user');
-                            if (storedUser) {
-                                const user = JSON.parse(storedUser);
-                                const curr = data.payment.currency;
-                                const walletKey = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
-                                user[walletKey] = (user[walletKey] || 0) + data.payment.amount;
-                                localStorage.setItem('hexad_user', JSON.stringify(user));
-                            }
-                        } else {
-                            // Automatically process the pending subscription/order
-                            const pendingStr = localStorage.getItem('hexad_pending_zb_order');
-                            if (pendingStr) {
-                                try {
-                                    const pendingOrder = JSON.parse(pendingStr);
-                                    fetch('/api/subscribe', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            ...pendingOrder,
-                                            hamperId: pendingOrder.cartItems?.map((i: any) => i.id).join('+') || 'unknown',
-                                            hamperName: pendingOrder.cartItems?.map((i: any) => `${i.title} (${i.kg}kg)`).join(', ') || 'MeatLink Order',
-                                            paymentMethod: 'zb_smilenpay'
-                                        })
-                                    }).then(r => r.json()).then(subData => {
-                                        if (subData.success) {
-                                            const deliveries = JSON.parse(localStorage.getItem(`hexad_deliveries_${pendingOrder.senderId}`) || '[]');
-                                            deliveries.unshift({
-                                                id: subData.subscriptionId,
-                                                recipientName: pendingOrder.recipientName,
-                                                date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-                                                location: `${pendingOrder.recipientSuburb || 'Unknown'}, Harare`,
-                                                status: 'Scheduled',
-                                                pack: pendingOrder.cartItems?.map((i: any) => `${i.title} (${i.kg}kg)`).join(', ') || 'MeatLink Order'
-                                            });
-                                            localStorage.setItem(`hexad_deliveries_${pendingOrder.senderId}`, JSON.stringify(deliveries));
-                                            localStorage.removeItem('hexad_cart');
-                                            localStorage.removeItem('hexad_pending_zb_order');
-                                        }
-                                    }).catch(e => console.error('Error auto-creating subscription for ZB order:', e));
-                                } catch(e) {
-                                    console.error('Error parsing pending order:', e);
-                                }
-                            }
-                        }
+                    const payment = data.payment as PaymentInfo;
+                    if (payment.status === 'COMPLETED') {
+                        recordLocalOutcome(payment);
+                        finish({
+                            status: 'success',
+                            message: payment.purpose === 'WALLET_TOPUP'
+                                ? 'Your wallet has been topped up successfully!'
+                                : 'Your order payment has been confirmed! We have scheduled the delivery.',
+                        });
                         return;
                     }
-
-                    if (data.payment.status === 'FAILED') {
-                        setPaymentStatus('failed');
-                        setMessage('Payment was not completed. Please try again.');
+                    if (payment.status === 'FAILED' || payment.status === 'EXPIRED') {
+                        finish({ status: 'failed', message: 'Payment was not completed. Please try again.' });
                         return;
                     }
-                }
-
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(checkStatus, 3000);
-                } else {
-                    setPaymentStatus('failed');
-                    setMessage('Payment verification timed out. If you were charged, please contact support.');
+                } else if (res.status === 404) {
+                    finish({ status: 'failed', message: 'We could not find this payment. Please contact support if you were charged.' });
+                    return;
                 }
             } catch (error) {
                 console.error('ZB return polling error:', error);
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(checkStatus, 3000);
-                } else {
-                    setPaymentStatus('failed');
-                    setMessage('An error occurred while verifying your payment.');
-                }
             }
+
+            if (attempts >= MAX_ATTEMPTS) {
+                finish({ status: 'failed', message: 'Payment verification timed out. If you were charged, please contact support with your reference.' });
+                return;
+            }
+            timer = setTimeout(checkStatus, POLL_INTERVAL_MS);
         };
 
-        // Start polling after a brief delay
-        setTimeout(checkStatus, 2000);
-    }, [paymentId, urlStatus]);
+        timer = setTimeout(checkStatus, 1500);
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [paymentId, orderRef, urlOutcome]);
 
     return (
         <div style={{
@@ -144,43 +173,39 @@ function ZBReturnContent() {
                 padding: '3rem 2rem',
                 boxShadow: 'var(--card-shadow)',
             }}>
-                {/* Status Icon */}
                 <div style={{
                     fontSize: '4rem',
                     marginBottom: '1.5rem',
-                    animation: paymentStatus === 'processing' ? 'pulse 1.5s infinite' : 'none',
+                    animation: view.status === 'processing' ? 'pulse 1.5s infinite' : 'none',
                 }}>
-                    {paymentStatus === 'processing' && '⏳'}
-                    {paymentStatus === 'success' && '✅'}
-                    {paymentStatus === 'failed' && '❌'}
+                    {view.status === 'processing' && '⏳'}
+                    {view.status === 'success' && '✅'}
+                    {view.status === 'failed' && '❌'}
                 </div>
 
-                {/* Title */}
                 <h1 style={{
                     fontSize: '1.75rem',
                     marginBottom: '0.75rem',
-                    color: paymentStatus === 'success'
+                    color: view.status === 'success'
                         ? 'var(--success, #22c55e)'
-                        : paymentStatus === 'failed'
+                        : view.status === 'failed'
                             ? 'var(--error, #ef4444)'
                             : 'var(--foreground)',
                 }}>
-                    {paymentStatus === 'processing' && 'Verifying Payment...'}
-                    {paymentStatus === 'success' && 'Payment Successful!'}
-                    {paymentStatus === 'failed' && 'Payment Failed'}
+                    {view.status === 'processing' && 'Verifying Payment...'}
+                    {view.status === 'success' && 'Payment Successful!'}
+                    {view.status === 'failed' && 'Payment Failed'}
                 </h1>
 
-                {/* Message */}
                 <p style={{
                     color: 'var(--text-muted)',
                     marginBottom: '1rem',
                     lineHeight: 1.6,
                     fontSize: '0.95rem',
                 }}>
-                    {message}
+                    {view.message}
                 </p>
 
-                {/* Reference */}
                 {orderRef && (
                     <div style={{
                         background: 'var(--background)',
@@ -195,10 +220,9 @@ function ZBReturnContent() {
                     </div>
                 )}
 
-                {/* Actions */}
-                {paymentStatus !== 'processing' && (
+                {view.status !== 'processing' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
-                        {paymentStatus === 'success' && (
+                        {view.status === 'success' && (
                             <>
                                 <Button fullWidth onClick={() => router.push('/dashboard')}>
                                     Go to Dashboard
@@ -208,7 +232,7 @@ function ZBReturnContent() {
                                 </Button>
                             </>
                         )}
-                        {paymentStatus === 'failed' && (
+                        {view.status === 'failed' && (
                             <>
                                 <Button fullWidth onClick={() => router.push('/checkout')}>
                                     Try Again
@@ -221,8 +245,7 @@ function ZBReturnContent() {
                     </div>
                 )}
 
-                {/* Processing animation */}
-                {paymentStatus === 'processing' && (
+                {view.status === 'processing' && (
                     <div style={{
                         display: 'flex',
                         justifyContent: 'center',

@@ -7,13 +7,13 @@ const CATEGORIES = [
     slug: "beef",
     name: "Beef",
     blurb: "Steaks, slow-cook cuts & braai favourites",
-    image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=800&h=600&fit=crop&q=80",
+    image: "/images/cuts/t-bone-steak.webp",
   },
   {
     slug: "pork",
     name: "Pork",
     blurb: "Chops, belly, ribs & traditional cuts",
-    image: "https://images.unsplash.com/photo-1432139509613-5c4255a1d128?w=800&h=600&fit=crop&q=80",
+    image: "/images/cuts/pork-shoulder.webp",
   },
   {
     slug: "poultry",
@@ -34,7 +34,7 @@ const FEATURED = [
     name: "T-Bone Steak",
     tag: "Beef",
     price: "$7.20/kg",
-    image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600&h=450&fit=crop&q=80",
+    image: "/images/cuts/t-bone-steak.webp",
   },
   {
     name: "Oxtail",
@@ -125,7 +125,7 @@ export default function Home() {
         <div className={styles.categoryGrid}>
           {CATEGORIES.map((cat) => (
             <Link key={cat.slug} href={`/shop?category=${cat.slug}`} className={styles.categoryCard}>
-              <img src={cat.image} alt="" className={styles.categoryImage} />
+              <img src={cat.image} alt="" className={styles.categoryImage} loading="lazy" decoding="async" />
               <div className={styles.categoryBody}>
                 <h3>{cat.name}</h3>
                 <p>{cat.blurb}</p>
@@ -145,7 +145,7 @@ export default function Home() {
           {FEATURED.map((item) => (
             <article key={item.name} className={styles.productCard}>
               <div className={styles.productImageWrap}>
-                <img src={item.image} alt={item.name} className={styles.productImage} />
+                <img src={item.image} alt={item.name} className={styles.productImage} loading="lazy" decoding="async" />
                 <span className={styles.productTag}>{item.tag}</span>
               </div>
               <div className={styles.productBody}>

@@ -1,5 +1,6 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
+import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
 
 /**
  * Hexad Market WhatsApp Chatbot
@@ -32,7 +33,16 @@ const SUBURBS = [
     'Msasa', 'Newlands', 'Tynwald', 'Waterfalls', 'Westgate', 'Zimre Park'
 ];
 
-type SessionData = { cart: Array<{ id: string; title: string; kg: number; price: number }>; [key: string]: unknown };
+type CartItem = { id: string; title: string; kg: number; price: number };
+type PendingCut = { id: string; title: string; price: number };
+type SessionData = {
+    cart: CartItem[];
+    pendingCut?: PendingCut;
+    recipientName?: string;
+    recipientWhatsApp?: string;
+    recipientAddress?: string;
+    recipientSuburb?: string;
+};
 
 function parseSessionData(raw: string | null | undefined): SessionData {
     if (!raw) return { cart: [] };
@@ -157,7 +167,7 @@ export const chatbotService = {
                     if (payload?.startsWith('cat_')) {
                         const cat = payload.slice(4);
                         if (getCutsForCategory(cat).length) {
-                            await this.sendCutsInCategory(from, cat, data);
+                            await this.sendCutsInCategory(from, cat);
                         } else {
                             await this.sendCutCategoryPicker(from, data);
                         }
@@ -179,7 +189,7 @@ export const chatbotService = {
                     }
 
                     if (cut) {
-                        data.pendingCut = cut;
+                        data.pendingCut = { id: cut.id, title: cut.title, price: cut.price };
                         await this.sendKgPicker(from, cut);
                         await this.updateSession(from, 'SELECTING_KG', data);
                     } else {
@@ -219,7 +229,7 @@ export const chatbotService = {
                     data.cart.push({ id: addedCut.id, title: addedCut.title, kg, price: addedCut.price });
                     delete data.pendingCut;
 
-                    const total = data.cart.reduce((s: number, i: any) => s + i.price * i.kg, 0);
+                    const total = data.cart.reduce((s, i) => s + i.price * i.kg, 0);
                     await this.send(from,
                         `✅ Added *${kg}kg ${addedCut.title}* ($${(addedCut.price * kg).toFixed(2)})\n\n` +
                         `🛒 Cart: ${data.cart.length} item(s) · $${total.toFixed(2)}\n\n` +
@@ -346,7 +356,7 @@ export const chatbotService = {
             console.error(`[WhatsApp Bot] Error in handleMessage (from=${from}):`, detail, error);
             try {
                 await this.send(from, "Oops! Something went wrong. Please try again by saying *Hi*.");
-            } catch (e) { /* last resort */ }
+            } catch { /* last resort */ }
         }
     },
 
@@ -404,7 +414,7 @@ export const chatbotService = {
         if (!ok) await this.send(to, fallbackText || body);
     },
 
-    async updateSession(from: string, state: string, data?: any) {
+    async updateSession(from: string, state: string, data?: SessionData) {
         const db = getPrisma();
         if (!db) return;
 
@@ -469,7 +479,7 @@ export const chatbotService = {
         await this.sendReplyButtonGroups(to, intro, options);
     },
 
-    async sendCutsInCategory(to: string, category: string, data?: SessionData) {
+    async sendCutsInCategory(to: string, category: string) {
         const cuts = getCutsForCategory(category);
         const intro = `*${category}* — pick a cut (USD/kg):`;
 
@@ -546,22 +556,22 @@ export const chatbotService = {
         ]);
     },
 
-    async sendCartSummary(to: string, data: any) {
+    async sendCartSummary(to: string, data: SessionData) {
         const items = data.cart || [];
-        const total = items.reduce((s: number, i: any) => s + i.price * i.kg, 0);
-        const totalKg = items.reduce((s: number, i: any) => s + i.kg, 0);
+        const total = items.reduce((s, i) => s + i.price * i.kg, 0);
+        const totalKg = items.reduce((s, i) => s + i.kg, 0);
         let msg = "*🛒 Your Cart*\n\n";
-        items.forEach((i: any) => {
+        items.forEach((i) => {
             msg += `• ${i.title} — ${i.kg}kg × $${i.price.toFixed(2)} = *$${(i.price * i.kg).toFixed(2)}*\n`;
         });
         msg += `\n*Total:* ${totalKg}kg — *$${total.toFixed(2)} USD*`;
         await this.send(to, msg);
     },
 
-    async sendOrderSummary(to: string, data: any) {
-        const cartTotal = data.cart.reduce((s: number, i: any) => s + i.price * i.kg, 0);
-        const totalKg = data.cart.reduce((s: number, i: any) => s + i.kg, 0);
-        const itemLines = data.cart.map((i: any) => `  • ${i.title} — ${i.kg}kg × $${i.price.toFixed(2)} = $${(i.price * i.kg).toFixed(2)}`).join('\n');
+    async sendOrderSummary(to: string, data: SessionData) {
+        const cartTotal = data.cart.reduce((s, i) => s + i.price * i.kg, 0);
+        const totalKg = data.cart.reduce((s, i) => s + i.kg, 0);
+        const itemLines = data.cart.map((i) => `  • ${i.title} — ${i.kg}kg × $${i.price.toFixed(2)} = $${(i.price * i.kg).toFixed(2)}`).join('\n');
 
         const summary =
             `*🧾 Order Summary*\n\n` +
@@ -579,10 +589,15 @@ export const chatbotService = {
         await this.send(to, summary);
     },
 
-    async handlePayment(from: string, data: any) {
+    async handlePayment(from: string, data: SessionData) {
         const db = getPrisma();
         if (!db) {
-            await this.send(from, 'The WhastApp payment service is temporarily unavailable. Please try again later.');
+            await this.send(from, 'The WhatsApp payment service is temporarily unavailable. Please try again later.');
+            return;
+        }
+
+        if (!data.cart.length) {
+            await this.send(from, 'Your cart is empty. Say *Hi* to start again.');
             return;
         }
 
@@ -593,33 +608,33 @@ export const chatbotService = {
             });
         }
 
-        const cartTotal = data.cart.reduce((s: number, i: any) => s + i.price * i.kg, 0);
-        const description = data.cart.map((i: any) => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240);
-        const host = process.env.NEXT_PUBLIC_BASE_URL || 'https://meatlink-zimbabwe.vercel.app';
+        const cartTotal = data.cart.reduce((s, i) => s + i.price * i.kg, 0);
+        const description = data.cart.map((i) => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240);
 
         try {
-            const response = await fetch(`${host}/api/payments/zb-smilenpay`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: cartTotal,
-                    currency: 'USD',
-                    userId: user.id,
-                    purpose: 'ORDER',
-                    description: `Hexad Market: ${description}`,
-                    metadata: {
-                        source: 'whatsapp_bot',
-                        cart: data.cart,
-                        recipientName: data.recipientName,
-                        recipientWhatsApp: data.recipientWhatsApp,
-                        recipientAddress: data.recipientAddress,
-                        recipientSuburb: data.recipientSuburb
-                    }
-                })
+            const result = await initiatePayment({
+                amount: cartTotal,
+                currency: 'USD',
+                userId: user.id,
+                purpose: 'ORDER',
+                description: `Hexad Market: ${description}`,
+                baseUrl: resolveBaseUrl(),
+                firstName: (user.name || 'Hexad').split(' ')[0],
+                lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
+                mobilePhoneNumber: from.replace(/\D/g, '').slice(-10) || '0770000000',
+                metadata: {
+                    source: 'whatsapp_bot',
+                    cart: data.cart,
+                    recipientName: data.recipientName,
+                    recipientWhatsApp: data.recipientWhatsApp,
+                    recipientAddress: data.recipientAddress,
+                    recipientSuburb: data.recipientSuburb,
+                    senderName: user.name,
+                    frequency: 'WEEKLY',
+                }
             });
 
-            const result = await response.json();
-            if (result.success && result.checkoutUrl) {
+            if (result.success) {
                 await this.send(from,
                     `✅ *Payment Link Ready!*\n\n` +
                     `💳 Pay *$${cartTotal.toFixed(2)} USD* securely:\n${result.checkoutUrl}\n\n` +
@@ -629,6 +644,7 @@ export const chatbotService = {
                 // Reset session after successful payment link
                 await this.updateSession(from, 'START', { cart: [] });
             } else {
+                console.error('[WhatsApp Bot] Payment initiation failed:', result.error);
                 await this.send(from,
                     `😔 Sorry, I couldn't generate a payment link right now.\n\n` +
                     `Your order for *${description}* has been saved.`

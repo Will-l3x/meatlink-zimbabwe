@@ -12,6 +12,8 @@ interface ButtonProps {
     className?: string;
     fullWidth?: boolean;
     style?: React.CSSProperties;
+    type?: 'button' | 'submit' | 'reset';
+    disabled?: boolean;
 }
 
 export default function Button({
@@ -21,7 +23,9 @@ export default function Button({
     onClick,
     className = '',
     fullWidth = false,
-    style
+    style,
+    type,
+    disabled = false
 }: ButtonProps) {
     const rootClassName = `
     ${styles.button} 
@@ -39,7 +43,7 @@ export default function Button({
     }
 
     return (
-        <button className={rootClassName} onClick={onClick} style={style}>
+        <button type={type} className={rootClassName} onClick={onClick} style={style} disabled={disabled}>
             {children}
         </button>
     );

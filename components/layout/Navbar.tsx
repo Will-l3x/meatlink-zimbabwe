@@ -14,8 +14,10 @@ export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
+        // Sync the display name from localStorage whenever the route changes.
         const storedUser = readStoredJson<{ name: string; role?: string } | null>('hexad_user', null);
-        if (storedUser) setUser(storedUser);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setUser(storedUser);
     }, [pathname]);
 
     useEffect(() => {
@@ -25,6 +27,7 @@ export default function Navbar() {
     }, []);
 
     const handleLogout = () => {
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
         removeStoredItem('hexad_user');
         setUser(null);
         router.push('/');

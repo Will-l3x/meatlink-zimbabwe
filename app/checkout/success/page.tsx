@@ -2,7 +2,6 @@
 
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 

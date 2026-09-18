@@ -120,18 +120,24 @@ export default function AdminPage() {
 
         fetchData();
         fetchOrders();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router]);
 
     const fetchData = async () => {
         try {
             const res = await fetch('/api/admin');
+            if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('hexad_user');
+                router.push('/login');
+                return;
+            }
             const result = await res.json();
             if (result.success) {
                 setData(result);
             } else {
                 setError(result.error || 'Failed to load data');
             }
-        } catch (err) {
+        } catch {
             setError('Network error — could not reach server');
         } finally {
             setLoading(false);
@@ -168,7 +174,7 @@ export default function AdminPage() {
             } else {
                 setBatchMessage('Failed: ' + result.error);
             }
-        } catch (err) {
+        } catch {
             setBatchMessage('Network error');
         }
     };
@@ -190,6 +196,7 @@ export default function AdminPage() {
     };
 
     const handleLogout = () => {
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
         localStorage.removeItem('hexad_user');
         router.push('/login');
     };

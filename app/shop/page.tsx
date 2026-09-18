@@ -31,7 +31,7 @@ const MEAT_CUTS = [
         description: 'Rich in collagen and flavour. Ideal for slow-cooked stews and traditional dishes.',
         pricing: { usd: 3.75, zar: 69, gbp: 2.96 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/pork-trotters.webp'
     },
     {
         id: 'pork-shoulder',
@@ -40,7 +40,7 @@ const MEAT_CUTS = [
         description: 'Versatile and succulent cut. Great for roasting, pulled pork, or braising.',
         pricing: { usd: 5.00, zar: 93, gbp: 3.95 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/pork-shoulder.webp'
     },
     {
         id: 'pork-belly',
@@ -67,7 +67,7 @@ const MEAT_CUTS = [
         description: 'Premium bone-in steak with both sirloin and fillet. The king of the braai.',
         pricing: { usd: 7.20, zar: 133, gbp: 5.69 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/t-bone-steak.webp'
     },
     {
         id: 'blade',
@@ -85,7 +85,7 @@ const MEAT_CUTS = [
         description: 'Slow-cook this to perfection. Incredible for smoking, braising, and BBQ.',
         pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/brisket.webp'
     },
     {
         id: 'full-chicken',
@@ -112,7 +112,7 @@ const MEAT_CUTS = [
         description: 'Assorted chicken pieces — drumsticks, thighs, and wings. Great value for families.',
         pricing: { usd: 5.00, zar: 93, gbp: 3.95 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/mixed-portions.webp'
     },
     {
         id: 'oxtail',
@@ -130,7 +130,7 @@ const MEAT_CUTS = [
         description: 'Thick, meaty ribs with incredible marbling. Perfect for braising or the braai.',
         pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
         frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop&q=80'
+        image: '/images/cuts/beef-short-ribs.webp'
     },
     {
         id: 'beef-trotters',
@@ -162,27 +162,30 @@ const MEAT_CUTS = [
 ];
 
 type FilterType = 'all' | 'pork' | 'beef' | 'poultry' | 'premium' | 'specialty';
+const CATEGORY_FILTERS: FilterType[] = ['pork', 'beef', 'poultry', 'premium', 'specialty'];
 
 function ShopPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [filter, setFilter] = useState<FilterType>('all');
+    // The active filter comes from ?category= until the user picks one manually;
+    // a manual pick is scoped to the URL it was made on so a new link resets it.
+    const categoryParam = searchParams.get('category')?.toLowerCase() ?? null;
+    const urlFilter: FilterType = categoryParam && CATEGORY_FILTERS.includes(categoryParam as FilterType)
+        ? (categoryParam as FilterType)
+        : 'all';
+    const [manualFilter, setManualFilter] = useState<{ forParam: string | null; value: FilterType } | null>(null);
+    const filter: FilterType = manualFilter && manualFilter.forParam === categoryParam ? manualFilter.value : urlFilter;
+    const setFilter = (value: FilterType) => setManualFilter({ forParam: categoryParam, value });
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addedMessage, setAddedMessage] = useState('');
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     useEffect(() => {
+        // Hydrate the cart from localStorage after mount (not available during SSR).
         const saved = readStoredJson<CartItem[]>('hexad_cart', []);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCart(saved);
     }, []);
-
-    useEffect(() => {
-        const cat = searchParams.get('category')?.toLowerCase();
-        const allowed: FilterType[] = ['pork', 'beef', 'poultry', 'premium', 'specialty'];
-        if (cat && allowed.includes(cat as FilterType)) {
-            setFilter(cat as FilterType);
-        }
-    }, [searchParams]);
 
     useEffect(() => {
         writeStoredJson('hexad_cart', cart);

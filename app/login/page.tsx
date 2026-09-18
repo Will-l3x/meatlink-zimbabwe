@@ -92,7 +92,7 @@ export default function LoginPage() {
                     />
                 </div>
 
-                <Button fullWidth variant="primary">
+                <Button fullWidth variant="primary" type="submit" disabled={loading}>
                     {loading ? 'Logging in...' : 'Log In'}
                 </Button>
             </form>

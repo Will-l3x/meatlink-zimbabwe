@@ -3,12 +3,10 @@ import * as https from 'https';
 /**
  * ZB Smile & Pay Payment Gateway Service
  * Uses the real ZB Payments Gateway API (OpenAPI spec).
- * 
+ *
  * Key endpoints:
- * - POST /payments/initiate-transaction → Creates a payment, returns paymentUrl
+ * - POST /payments/payment-request/initiate-transaction → Creates a payment, returns paymentUrl
  * - GET  /payments/transaction/{ref}/status/check → Polls payment status
- * - POST /payments/ecocash-payment → Direct Ecocash payment
- * - POST /payments/innbucks-payment → Direct InnBucks payments to go
  */
 
 // ZB API Configuration
@@ -75,11 +73,24 @@ export interface CheckStatusResponse {
     merchantFee: number;
 }
 
+/** Loosely-typed body returned by ZB's initiate endpoint. */
+interface ZBInitiateBody {
+    paymentUrl?: string;
+    transactionReference?: string;
+    message?: string;
+    responseMessage?: string;
+    [key: string]: unknown;
+}
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 // ---------- Payment Service ----------
 
 export const paymentService = {
     /**
-     * Create a ZB payment session via the /payments/initiate-transaction endpoint.
+     * Create a ZB payment session via the initiate-transaction endpoint.
      * Returns a paymentUrl the customer should be redirected to.
      */
     async initiateTransaction(request: InitiateTransactionRequest): Promise<{
@@ -101,9 +112,7 @@ export const paymentService = {
                 // If retrying, append suffix to avoid "Suspected duplicate orderId"
                 const currentOrderRef = attempt === 1 ? request.orderReference : `${request.orderReference}-R${attempt}`;
 
-                // Deep clone and update the order reference
                 const payload = { ...request, orderReference: currentOrderRef };
-
                 const payloadStr = JSON.stringify(payload);
 
                 // Use https.request instead of fetch to bypass Next.js header sanitization
@@ -116,22 +125,25 @@ export const paymentService = {
                     }
                 };
 
-                const responseData = await new Promise<{ status: number, data: any, raw: string }>((resolve, reject) => {
+                const responseData = await new Promise<{ status: number; data: ZBInitiateBody | null; raw: string }>((resolve, reject) => {
                     const req = https.request(url, options, (res) => {
                         let raw = '';
                         res.on('data', chunk => raw += chunk);
                         res.on('end', () => {
-                            let parsed = null;
-                            try { parsed = JSON.parse(raw); } catch (e) { }
+                            let parsed: ZBInitiateBody | null = null;
+                            try { parsed = JSON.parse(raw) as ZBInitiateBody; } catch { /* non-JSON body */ }
                             resolve({ status: res.statusCode || 500, data: parsed, raw });
                         });
                     });
                     req.on('error', reject);
+                    req.setTimeout(20000, () => {
+                        req.destroy(new Error('ZB API request timed out'));
+                    });
                     req.write(payloadStr);
                     req.end();
                 });
 
-                const data = responseData.data || {};
+                const data: ZBInitiateBody = responseData.data || {};
                 console.log('[ZB API] Response:', JSON.stringify(data), '| HTTP Status:', responseData.status);
 
                 if (responseData.status >= 200 && responseData.status < 300 && data.paymentUrl && data.transactionReference) {
@@ -152,8 +164,8 @@ export const paymentService = {
                 }
 
                 break;
-            } catch (error: any) {
-                console.error(`[ZB API] Network error on attempt ${attempt}:`, error.message);
+            } catch (error) {
+                console.error(`[ZB API] Network error on attempt ${attempt}:`, errorMessage(error));
                 lastError = 'Could not connect to ZB payment gateway';
 
                 if (attempt < MAX_RETRIES) {
@@ -182,11 +194,17 @@ export const paymentService = {
 
         try {
             const response = await fetch(
-                `${ZB_CONFIG.apiUrl}/payments/transaction/${orderReference}/status/check`,
-                { headers: getZBHeaders() }
+                `${ZB_CONFIG.apiUrl}/payments/transaction/${encodeURIComponent(orderReference)}/status/check`,
+                { headers: getZBHeaders(), cache: 'no-store' }
             );
 
-            const data: CheckStatusResponse = await response.json();
+            if (!response.ok) {
+                const raw = await response.text().catch(() => '');
+                console.error(`[ZB API] Status check HTTP ${response.status}:`, raw.slice(0, 300));
+                return { success: false, error: `ZB status check failed (HTTP ${response.status})` };
+            }
+
+            const data = (await response.json()) as CheckStatusResponse;
             console.log('[ZB API] Status response:', JSON.stringify(data));
 
             return {
@@ -195,7 +213,7 @@ export const paymentService = {
                 data,
             };
         } catch (error) {
-            console.error('[ZB API] Status check error:', error);
+            console.error('[ZB API] Status check error:', errorMessage(error));
             return {
                 success: false,
                 error: 'Could not check payment status',
@@ -206,15 +224,15 @@ export const paymentService = {
     /**
      * Fetch a transaction by reference.
      */
-    async fetchTransaction(reference: string) {
+    async fetchTransaction(reference: string): Promise<unknown> {
         try {
             const response = await fetch(
-                `${ZB_CONFIG.apiUrl}/payments/fetch-transaction-by-reference?reference=${reference}`,
-                { headers: getZBHeaders() }
+                `${ZB_CONFIG.apiUrl}/payments/fetch-transaction-by-reference?reference=${encodeURIComponent(reference)}`,
+                { headers: getZBHeaders(), cache: 'no-store' }
             );
             return await response.json();
         } catch (error) {
-            console.error('[ZB API] Fetch transaction error:', error);
+            console.error('[ZB API] Fetch transaction error:', errorMessage(error));
             return null;
         }
     },
@@ -222,15 +240,15 @@ export const paymentService = {
     /**
      * Cancel a payment by order reference.
      */
-    async cancelPayment(orderReference: string) {
+    async cancelPayment(orderReference: string): Promise<unknown> {
         try {
             const response = await fetch(
-                `${ZB_CONFIG.apiUrl}/payments/cancel/${orderReference}`,
+                `${ZB_CONFIG.apiUrl}/payments/cancel/${encodeURIComponent(orderReference)}`,
                 { method: 'POST', headers: getZBHeaders() }
             );
             return await response.json();
         } catch (error) {
-            console.error('[ZB API] Cancel error:', error);
+            console.error('[ZB API] Cancel error:', errorMessage(error));
             return { success: false };
         }
     },
@@ -242,3 +260,12 @@ export const paymentService = {
         return ZB_CONFIG.isSandbox;
     },
 };
+
+/** Map a raw ZB status string onto our Payment.status enum. */
+export function mapZBStatus(raw: string | undefined | null): 'PENDING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' {
+    const normalized = (raw || '').toUpperCase();
+    if (['SUCCESS', 'PAID', 'COMPLETED'].includes(normalized)) return 'COMPLETED';
+    if (['FAILED', 'CANCELLED', 'CANCELED', 'DECLINED'].includes(normalized)) return 'FAILED';
+    if (normalized === 'EXPIRED') return 'EXPIRED';
+    return 'PENDING';
+}

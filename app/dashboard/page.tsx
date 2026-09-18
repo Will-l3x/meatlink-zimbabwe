@@ -51,6 +51,7 @@ export default function DashboardPage() {
             return;
         }
         const parsed = JSON.parse(storedUser);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(parsed);
 
         // Load saved recipients (scoped to this user)

@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
+import { requireSession } from '@/lib/session';
+import { nextDeliveryDate } from '@/lib/order-fulfillment';
 
+/**
+ * POST /api/subscribe — create a subscription for the logged-in user.
+ * Paid website/WhatsApp orders are fulfilled server-side from the payment
+ * record (see lib/order-fulfillment.ts); this route remains for manual /
+ * wallet-funded subscriptions.
+ */
 export async function POST(request: Request) {
+    const guard = requireSession(request);
+    if (guard.response) return guard.response;
+
     try {
         const body = await request.json();
         const {
@@ -10,8 +21,6 @@ export async function POST(request: Request) {
             recipientWhatsApp,
             recipientAddress,
             recipientSuburb,
-            senderId,
-            senderName,
             hamperId,
             hamperName,
             frequency,
@@ -27,16 +36,19 @@ export async function POST(request: Request) {
             );
         }
 
-        if (!senderId || !senderName) {
-            return NextResponse.json(
-                { success: false, error: 'Please log in to subscribe.' },
-                { status: 401 }
-            );
+        const parsedAmount = Number(amount);
+        if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+            return NextResponse.json({ success: false, error: 'Invalid amount.' }, { status: 400 });
         }
 
         const db = getPrisma();
         if (!db) {
             return NextResponse.json({ success: false, error: 'Subscription service is temporarily unavailable' }, { status: 503 });
+        }
+
+        const sender = await db.user.findUnique({ where: { id: guard.session.uid }, select: { id: true, name: true } });
+        if (!sender) {
+            return NextResponse.json({ success: false, error: 'Please log in to subscribe.' }, { status: 401 });
         }
 
         let recipient = await db.recipient.findFirst({
@@ -54,37 +66,29 @@ export async function POST(request: Request) {
             });
         }
 
-        const resolvedHamperName = String(hamperName || hamperId || 'MeatLink Hamper').trim();
-        let resolvedHamperId = String(hamperId || '').trim();
-        const existingHamper = await db.hamper.findFirst({
-            where: { name: { contains: resolvedHamperName, mode: 'insensitive' } }
+        const resolvedHamperName = String(hamperName || hamperId || 'Hexad Market Hamper').trim().slice(0, 200);
+        const curr = String(currency || 'USD').toUpperCase();
+        const hamper = await db.hamper.upsert({
+            where: { name: resolvedHamperName },
+            update: {},
+            create: {
+                name: resolvedHamperName,
+                description: `Meat hamper pack: ${resolvedHamperName}`,
+                priceUSD: curr === 'USD' ? parsedAmount : 0,
+                priceZAR: curr === 'ZAR' ? parsedAmount : 0,
+                priceGBP: curr === 'GBP' ? parsedAmount : 0,
+            }
         });
 
-        if (!existingHamper) {
-            const hamper = await db.hamper.create({
-                data: {
-                    name: resolvedHamperName,
-                    description: `Meat hamper pack: ${resolvedHamperName}`,
-                    priceUSD: currency === 'USD' ? Number(amount) : 0,
-                    priceZAR: currency === 'ZAR' ? Number(amount) : 0,
-                    priceGBP: currency === 'GBP' ? Number(amount) : 0,
-                }
-            });
-            resolvedHamperId = hamper.id;
-        } else {
-            resolvedHamperId = existingHamper.id;
-        }
-
-        const today = new Date();
-        const daysUntilWed = (3 - today.getDay() + 7) % 7 || 7;
-        const nextDelivery = new Date(today.getTime() + daysUntilWed * 24 * 60 * 60 * 1000);
+        const validFrequency = frequency === 'BI_WEEKLY' || frequency === 'MONTHLY' ? frequency : 'WEEKLY';
+        const nextDelivery = nextDeliveryDate();
 
         const subscription = await db.subscription.create({
             data: {
-                senderId,
+                senderId: sender.id,
                 recipientId: recipient.id,
-                hamperId: resolvedHamperId,
-                frequency: frequency || 'WEEKLY',
+                hamperId: hamper.id,
+                frequency: validFrequency,
                 nextDelivery,
             }
         });
@@ -98,31 +102,35 @@ export async function POST(request: Request) {
             }
         });
 
-        await db.transaction.create({
-            data: {
-                userId: senderId,
-                amount: Number(amount),
-                type: 'DEDUCTION',
-                description: `Subscription for ${recipientName} (${frequency || 'WEEKLY'})`,
-                reference: `SUB-${subscription.id.slice(-6).toUpperCase()}`
-            }
-        });
-
-        if (paymentMethod === 'wallet') {
-            const curr = (currency || 'USD').toUpperCase();
+        if (paymentMethod === 'wallet' && parsedAmount > 0) {
             const walletField = curr === 'ZAR' ? 'walletZAR' : curr === 'GBP' ? 'walletGBP' : 'walletUSD';
+            const current = await db.user.findUnique({ where: { id: sender.id }, select: { [walletField]: true } }) as Record<string, number> | null;
+            if (!current || (current[walletField] ?? 0) < parsedAmount) {
+                await db.delivery.deleteMany({ where: { subscriptionId: subscription.id } });
+                await db.subscription.delete({ where: { id: subscription.id } });
+                return NextResponse.json({ success: false, error: 'Insufficient wallet balance.' }, { status: 402 });
+            }
 
             await db.user.update({
-                where: { id: senderId },
+                where: { id: sender.id },
+                data: { [walletField]: { decrement: parsedAmount } }
+            });
+
+            await db.transaction.create({
                 data: {
-                    [walletField]: { decrement: Number(amount) }
+                    userId: sender.id,
+                    amount: parsedAmount,
+                    type: 'DEDUCTION',
+                    description: `Subscription for ${recipientName} (${validFrequency})`,
+                    reference: `SUB-${subscription.id.slice(-6).toUpperCase()}`
                 }
             });
         }
 
+        const dateLabel = nextDelivery.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
         await whatsappService.sendMessage({
             to: String(recipientWhatsApp).trim(),
-            text: `Hi ${recipientName}! 🍗 Your meat pack from ${senderName} is arriving today between 10 AM and 12 PM. Please ensure someone is home to receive it. Thank you for using Hexad Market!`
+            text: `Hi ${recipientName}! 🥩 ${sender.name} has set up a meat delivery for you from Hexad Market. Your first delivery is scheduled for ${dateLabel}. We'll message you when it's on its way.`
         });
 
         return NextResponse.json({

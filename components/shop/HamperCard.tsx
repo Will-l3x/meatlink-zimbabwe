@@ -41,6 +41,8 @@ export default function HamperCard({
                     <img
                         src={image}
                         alt={title}
+                        loading="lazy"
+                        decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                 ) : (
