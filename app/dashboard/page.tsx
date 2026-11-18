@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
+import { whatsappLink } from '@/lib/contact';
 
 interface UserData {
     id: string;
@@ -112,17 +113,14 @@ export default function DashboardPage() {
             {/* Stats Cards */}
             <div className={styles.stats}>
                 <div className={`${styles.card} ${styles.deliveryCard}`}>
-                    <div className={styles.status}>
-                        {deliveries.length > 0 ? 'ACTIVE SUBSCRIPTION' : 'NO ACTIVE SUBSCRIPTION'}
-                    </div>
-                    <span className={styles.label}>Delivery Status</span>
+                    <span className={styles.label}>Latest order</span>
                     {deliveries.length > 0 ? (
                         <>
                             <div style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0.5rem 0' }}>
-                                {deliveries[0].pack} — Weekly
+                                {deliveries[0].pack}
                             </div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                Next delivery: Wednesday • Recipient: {deliveries[0].recipientName}
+                                For {deliveries[0].recipientName} · ordered {deliveries[0].date} · delivered on Wednesday
                             </div>
                         </>
                     ) : (
@@ -144,9 +142,9 @@ export default function DashboardPage() {
                 {/* Delivery Feed */}
                 <div className={styles.mainFeed}>
                     <div className={styles.feedHeader}>
-                        <h3>Proof of Delivery Feed</h3>
+                        <h3>Order history</h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            Delivery photos will appear here once your first pack is sent
+                            Orders placed from this device. Your family gets WhatsApp updates as each one is delivered.
                         </p>
                     </div>
 
@@ -156,31 +154,21 @@ export default function DashboardPage() {
                                 <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📦</div>
                                 <p>No deliveries yet</p>
                                 <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--text-light)' }}>
-                                    Once you subscribe, delivery confirmations with photos will show here.
+                                    Your orders will appear here after checkout.
                                 </p>
                             </div>
                         ) : (
                             deliveries.map(del => (
-                                <div key={del.id} className={styles.podCard}>
-                                    <div className={styles.podImage}>
-                                        <span style={{ fontSize: '2rem' }}>📸</span>
+                                <div key={del.id} className={styles.orderRow}>
+                                    <div className={styles.orderAvatar} aria-hidden="true">
+                                        {del.recipientName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                                     </div>
-                                    <div className={styles.podInfo}>
-                                        <h4>{del.recipientName}</h4>
-                                        <span>{del.date} • {del.location}</span>
-                                        <span style={{
-                                            display: 'inline-block',
-                                            marginTop: '0.25rem',
-                                            padding: '0.15rem 0.5rem',
-                                            background: 'rgba(45, 106, 79, 0.1)',
-                                            color: 'var(--success)',
-                                            borderRadius: '50px',
-                                            fontSize: '0.7rem',
-                                            fontWeight: 600
-                                        }}>
-                                            ✓ {del.status}
-                                        </span>
+                                    <div className={styles.orderInfo}>
+                                        <h4>{del.pack}</h4>
+                                        <span>For {del.recipientName} · {del.location}</span>
+                                        <span>Ordered {del.date}</span>
                                     </div>
+                                    <span className={styles.orderStatus}>{del.status}</span>
                                 </div>
                             ))
                         )}
@@ -192,6 +180,8 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                         <h3>Saved Recipients</h3>
                         <button
+                            type="button"
+                            aria-label={showAddRecipient ? 'Close add recipient form' : 'Add recipient'}
                             onClick={() => setShowAddRecipient(!showAddRecipient)}
                             style={{
                                 background: 'var(--secondary)',
@@ -317,7 +307,7 @@ export default function DashboardPage() {
                             Chat with our Harare logistics team via WhatsApp for real-time delivery updates.
                         </p>
                         <a
-                            href={`https://wa.me/263782154206?text=${encodeURIComponent('Hi! I need help with my MeatLink Zimbabwe order.')}`}
+                            href={whatsappLink()}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{

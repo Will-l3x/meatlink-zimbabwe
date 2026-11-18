@@ -113,8 +113,7 @@ export default function AdminPage() {
         }
         const user = JSON.parse(storedUser);
         if (user.role !== 'ADMIN') {
-            alert('Access denied. Admin privileges required.');
-            router.push('/dashboard');
+            router.replace('/dashboard');
             return;
         }
 

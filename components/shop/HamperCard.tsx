@@ -36,19 +36,22 @@ export default function HamperCard({
 
     return (
         <div className={styles.card}>
-            <div className={styles.imagePlaceholder}>
+            <div className={styles.imageFrame}>
                 {image ? (
                     <img
                         src={image}
                         alt={title}
                         loading="lazy"
                         decoding="async"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        className={styles.image}
                     />
                 ) : (
-                    <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>
-                        [Img: {title}]
-                    </span>
+                    <div className={styles.fallback} aria-hidden="true">
+                        <span className={styles.fallbackTag}>{tag}</span>
+                        <span className={styles.fallbackTitle}>{title}</span>
+                        <span className={styles.fallbackRule} />
+                        <span className={styles.fallbackNote}>Cut fresh to order</span>
+                    </div>
                 )}
                 {cartQty > 0 && (
                     <div className={styles.cartBadge}>
@@ -90,6 +93,8 @@ export default function HamperCard({
                         value={kg}
                         onChange={(e) => setKg(Number(e.target.value))}
                         className={styles.slider}
+                        aria-label={`Weight of ${title} in kilograms`}
+                        style={{ '--fill': `${((kg - 1) / 9) * 100}%` } as React.CSSProperties}
                     />
                     <div className={styles.sliderLabels}>
                         <span>1kg</span>
@@ -98,8 +103,8 @@ export default function HamperCard({
                     </div>
                 </div>
 
-                <button className={styles.addBtn} onClick={handleAdd}>
-                    🛒 Add {kg}kg — ${(pricing.usd * kg).toFixed(2)}
+                <button type="button" className={styles.addBtn} onClick={handleAdd}>
+                    Add {kg}kg to cart · ${(pricing.usd * kg).toFixed(2)}
                 </button>
             </div>
         </div>

@@ -1,0 +1,171 @@
+.hero {
+    background: var(--foreground);
+    color: #f7f1e6;
+    padding: 4rem var(--spacing) 3rem;
+    text-align: center;
+    border-bottom: 3px solid var(--accent-brass);
+}
+
+.hero h1 {
+    color: #fff;
+    font-size: clamp(2rem, 4.5vw, 3rem);
+    margin: 0.5rem 0 0.75rem;
+}
+
+.hero p {
+    color: rgba(247, 241, 230, 0.75);
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.body {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3.5rem var(--spacing) 5rem;
+}
+
+.body h2 {
+    font-size: 1.5rem;
+    margin: 2.5rem 0 0.75rem;
+}
+
+.body h2:first-child {
+    margin-top: 0;
+}
+
+.body h3 {
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.5rem;
+}
+
+.body p,
+.body li {
+    color: var(--foreground-soft);
+    line-height: 1.75;
+}
+
+.body p + p {
+    margin-top: 0.85rem;
+}
+
+.body ul {
+    padding-left: 1.25rem;
+    margin: 0.75rem 0;
+}
+
+.body li + li {
+    margin-top: 0.35rem;
+}
+
+.body a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.updated {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+}
+
+.contactCard {
+    margin-top: 3rem;
+    padding: 1.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.contactCard p {
+    margin: 0;
+}
+
+.contactCard strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--foreground);
+}
+
+.waBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: #25d366;
+    color: #fff !important;
+    border-radius: var(--radius);
+    font-weight: 700;
+    text-decoration: none !important;
+}
+
+.waBtn:hover {
+    background: #1fb855;
+}
+
+.faq {
+    border-top: 1px solid var(--border-light);
+}
+
+.faq details {
+    border-bottom: 1px solid var(--border-light);
+    padding: 1.1rem 0;
+}
+
+.faq summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--foreground);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.faq summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq summary::after {
+    content: '+';
+    color: var(--primary);
+    font-family: var(--font-body);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.faq details[open] summary::after {
+    content: '−';
+}
+
+.faq details p {
+    margin-top: 0.75rem;
+}
+
+.suburbGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0 2rem;
+    padding: 0;
+    list-style: none;
+}
+
+.suburbGrid li {
+    margin: 0 !important;
+    padding: 0.85rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    font-weight: 600;
+    color: var(--foreground);
+}

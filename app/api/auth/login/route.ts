@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         }
 
         const normalizedEmail = String(email).trim().toLowerCase();
-        const user = await db.user.findUnique({
+        const user = await db.user.findFirst({
             where: { email: normalizedEmail }
         });
 

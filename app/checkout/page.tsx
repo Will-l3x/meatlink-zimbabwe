@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
+import { SUBURBS } from '@/lib/delivery';
 
 interface CartItem {
     id: string;
@@ -24,29 +25,30 @@ interface ContactInfo {
 
 type Step = 1 | 2 | 3;
 
-const SUBURBS = [
-    'Avondale', 'Borrowdale', 'Budiriro', 'Chitungwiza', 'Glen Lorne', 'Greendale',
-    'Harare CBD', 'Highlands', 'Kuwadzana', 'Mabelreign', 'Mbare', 'Mount Pleasant',
-    'Msasa', 'Newlands', 'Tynwald', 'Waterfalls', 'Westgate', 'Zimre Park'
-];
 
 function CheckoutContent() {
     const router = useRouter();
 
     const [step, setStep] = useState<Step>(1);
-    const [cartItems, setCartItems] = useState<CartItem[]>(() => readStoredJson<CartItem[]>('hexad_cart', []));
+    // Cart and contacts live in localStorage, which only exists in the browser.
+    // Start empty so server and client render the same HTML, then hydrate.
+    const [hydrated, setHydrated] = useState(false);
+    const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
     const [currency, setCurrency] = useState<'usd' | 'zar' | 'gbp'>('usd');
     const [loading, setLoading] = useState(false);
 
     // Saved contacts
-    const [savedContacts, setSavedContacts] = useState<ContactInfo[]>(() => {
+    const [savedContacts, setSavedContacts] = useState<ContactInfo[]>([]);
+
+    useEffect(() => {
         const storedUser = readStoredJson<{ id?: string } | null>('hexad_user', null);
+        setCartItems(readStoredJson<CartItem[]>('hexad_cart', []));
         if (storedUser?.id) {
-            return readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []);
+            setSavedContacts(readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []));
         }
-        return [];
-    });
+        setHydrated(true);
+    }, []);
 
     const [formData, setFormData] = useState({
         recipientName: '',
@@ -97,6 +99,12 @@ function CheckoutContent() {
 
     const persistContactIfNeeded = (userId: string) => {
         if (!saveContact) return;
+        const normalise = (v: string) => v.replace(/\s+/g, '').toLowerCase();
+        const alreadySaved = savedContacts.some(c =>
+            normalise(c.whatsapp) === normalise(formData.recipientWhatsApp) &&
+            normalise(c.address) === normalise(formData.recipientAddress)
+        );
+        if (alreadySaved) return;
         const newContact: ContactInfo = {
             id: `c-${Date.now()}`,
             name: formData.recipientName,
@@ -154,7 +162,7 @@ function CheckoutContent() {
                     userId: user.id,
                     purpose: 'ORDER',
                     description: cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240),
-                    firstName: (user.name || 'MeatLink').split(' ')[0],
+                    firstName: (user.name || 'Hexad').split(' ')[0],
                     lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
                     email: user.email || 'support@meatlink.co.zw',
                     mobilePhoneNumber: formData.recipientWhatsApp.replace(/\D/g, '').slice(-10) || '0770000000',
@@ -199,6 +207,14 @@ function CheckoutContent() {
             setLoading(false);
         }
     };
+
+    if (!hydrated) {
+        return (
+            <div className={styles.container} style={{ textAlign: 'center', padding: '5rem 1rem', color: 'var(--text-muted)' }}>
+                Loading your cart…
+            </div>
+        );
+    }
 
     // ── Empty cart ────────────────────────────────────────
     if (cartItems.length === 0 && step !== 3) {

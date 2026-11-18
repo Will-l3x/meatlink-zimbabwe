@@ -1,55 +1,7 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import React, { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import styles from './page.module.css';
-import Button from '@/components/ui/Button';
-
-function SuccessContent() {
-    const searchParams = useSearchParams();
-    const subId = searchParams.get('subId');
-
-    return (
-        <div className={styles.container}>
-            <div className={styles.successIcon}>✓</div>
-            <header className={styles.header}>
-                <h1>Payment Successful!</h1>
-                <p>
-                    Your family pack has been ordered. The recipeint in Harare has been notified via WhatsApp and will receive their first delivery this upcoming Wednesday.
-                </p>
-            </header>
-
-            <div className={styles.details}>
-                <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Order Status</span>
-                    <span className={styles.detailValue} style={{ color: 'var(--success)' }}>ACTIVE</span>
-                </div>
-                <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Subscription ID</span>
-                    <span className={styles.detailValue}>#{subId?.substr(-8).toUpperCase()}</span>
-                </div>
-                <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Next Delivery</span>
-                    <span className={styles.detailValue}>Coming Wednesday</span>
-                </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem' }}>
-                <Button href="/dashboard" fullWidth>Go to Dashboard</Button>
-                <Button href="/shop" variant="secondary" fullWidth>Order More</Button>
-            </div>
-
-            <p style={{ marginTop: '2rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                A confirmation email has been sent to your registered address.
-            </p>
-        </div>
-    );
-}
-
-export default function SuccessPage() {
-    return (
-        <Suspense fallback={<div>Loading Success...</div>}>
-            <SuccessContent />
-        </Suspense>
-    );
+// Payment results are shown on /checkout/zb-return, which verifies the
+// payment with ZB. This old static page is kept only as a redirect.
+export default function CheckoutSuccessPage() {
+    redirect('/dashboard');
 }

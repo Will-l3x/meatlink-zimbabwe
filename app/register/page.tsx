@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 export default function RegisterPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -17,6 +18,7 @@ export default function RegisterPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
         setLoading(true);
 
         try {
@@ -28,7 +30,7 @@ export default function RegisterPage() {
 
             const data = await res.json();
 
-            if (res.ok) {
+            if (res.ok && data.success) {
                 localStorage.setItem('hexad_user', JSON.stringify({
                     id: data.user.id,
                     name: data.user.name,
@@ -41,10 +43,11 @@ export default function RegisterPage() {
                 }));
                 router.push('/dashboard');
             } else {
-                alert(data.error || 'Registration failed. Please try again.');
+                setError(data.error || 'Registration failed. Please try again.');
             }
         } catch (err) {
             console.error(err);
+            setError('Network error. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -56,6 +59,12 @@ export default function RegisterPage() {
                 <h1>Create Account</h1>
                 <p>Join the Diaspora community feeding home.</p>
             </div>
+
+            {error && (
+                <div role="alert" className={styles.error}>
+                    {error}
+                </div>
+            )}
 
             <form className={styles.form} onSubmit={handleSubmit}>
                 <div className={styles.inputGroup}>
@@ -83,7 +92,9 @@ export default function RegisterPage() {
                     <input
                         type="password"
                         required
-                        placeholder="••••••••"
+                        minLength={6}
+                        autoComplete="new-password"
+                        placeholder="At least 6 characters"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     />

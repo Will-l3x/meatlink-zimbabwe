@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:indexes": "node scripts/ensure-indexes.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

@@ -34,7 +34,7 @@ enum DeliveryStatus {
 
 model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
-  email         String?        @unique
+  email         String?        // unique when set — see scripts/ensure-indexes.mjs
   name          String
   password      String?
   role          Role           @default(SENDER)
@@ -42,7 +42,7 @@ model User {
   walletUSD     Float          @default(0)
   walletZAR     Float          @default(0)
   walletGBP     Float          @default(0)
-  whatsappId    String?        @unique
+  whatsappId    String?        // unique when set — see scripts/ensure-indexes.mjs
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   
@@ -50,6 +50,13 @@ model User {
   transactions  Transaction[]
   payments      Payment[]
   chatSessions  ChatSession[]
+
+  // Plain lookup indexes. Uniqueness is enforced by partial indexes created
+  // by scripts/ensure-indexes.mjs: a Prisma @unique on an optional field makes
+  // MongoDB treat every missing value as a duplicate, so only one web user
+  // (no whatsappId) and one WhatsApp user (no email) could ever exist.
+  @@index([email])
+  @@index([whatsappId])
 }
 
 model ChatSession {

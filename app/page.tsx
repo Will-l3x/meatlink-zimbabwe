@@ -25,7 +25,7 @@ const CATEGORIES = [
     slug: "premium",
     name: "Premium",
     blurb: "Oxtail & occasion cuts",
-    image: "https://images.unsplash.com/photo-1558030006-450675393462?w=800&h=600&fit=crop&q=80",
+    image: "/images/cuts/beef-short-ribs.webp",
   },
 ];
 
@@ -33,24 +33,28 @@ const FEATURED = [
   {
     name: "T-Bone Steak",
     tag: "Beef",
+    category: "beef",
     price: "$7.20/kg",
     image: "/images/cuts/t-bone-steak.webp",
   },
   {
-    name: "Oxtail",
-    tag: "Premium",
-    price: "$12.86/kg",
-    image: "https://images.unsplash.com/photo-1558030006-450675393462?w=600&h=450&fit=crop&q=80",
+    name: "Beef Short Ribs",
+    tag: "Beef",
+    category: "beef",
+    price: "$6.00/kg",
+    image: "/images/cuts/beef-short-ribs.webp",
   },
   {
-    name: "Pork Belly",
+    name: "Pork Shoulder",
     tag: "Pork",
-    price: "$6.00/kg",
-    image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=450&fit=crop&q=80",
+    category: "pork",
+    price: "$5.00/kg",
+    image: "/images/cuts/pork-shoulder.webp",
   },
   {
     name: "Full Chicken",
     tag: "Poultry",
+    category: "poultry",
     price: "$6.89/kg",
     image: "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=600&h=450&fit=crop&q=80",
   },
@@ -71,7 +75,7 @@ const STEPS = [
   },
   {
     title: "Weekly delivery",
-    description: "Fresh cuts on schedule, with proof of delivery for peace of mind.",
+    description: "Fresh cuts every Wednesday, with WhatsApp updates when it's on the way and delivered.",
   },
 ];
 
@@ -88,7 +92,7 @@ export default function Home() {
           <div className={styles.heroOverlay} />
         </div>
         <div className={styles.heroContent}>
-          <p className={styles.eyebrow}>Harare · Weekly delivery · Since 2024</p>
+          <p className={styles.eyebrow}>Harare · Weekly delivery</p>
           <h1>
             Your neighbourhood butcher,
             <br />
@@ -109,10 +113,10 @@ export default function Home() {
 
       <section className={styles.trustStrip}>
         <div className={styles.trustInner}>
-          <div><strong>2,400+</strong> families fed</div>
-          <div><strong>98%</strong> on-time delivery</div>
-          <div><strong>12</strong> Harare suburbs</div>
-          <div><strong>4.9★</strong> customer rating</div>
+          <div><strong>Free delivery</strong> across Harare</div>
+          <div><strong>Every Wednesday</strong> fresh to the door</div>
+          <div><strong>Pay your way</strong> Ecocash · InnBucks · Card</div>
+          <div><strong>Web or WhatsApp</strong> order from anywhere</div>
         </div>
       </section>
 
@@ -143,7 +147,7 @@ export default function Home() {
         </div>
         <div className={styles.productGrid}>
           {FEATURED.map((item) => (
-            <article key={item.name} className={styles.productCard}>
+            <Link key={item.name} href={`/shop?category=${item.category}`} className={styles.productCard}>
               <div className={styles.productImageWrap}>
                 <img src={item.image} alt={item.name} className={styles.productImage} loading="lazy" decoding="async" />
                 <span className={styles.productTag}>{item.tag}</span>
@@ -152,7 +156,7 @@ export default function Home() {
                 <h3>{item.name}</h3>
                 <p className={styles.productPrice}>{item.price}</p>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
         <div className={styles.sectionCta}>
@@ -167,8 +171,8 @@ export default function Home() {
             <h2>From farm gate to family table</h2>
             <p>
               Hexad Market exists so diaspora families can send more than money home — you send nourishment,
-              tradition, and Sunday lunch. Every order is traceable, every delivery is photographed, and every
-              cut is chosen for freshness.
+              tradition, and Sunday lunch. Every order is tracked, your family gets a WhatsApp when it&apos;s on the way and when it&apos;s
+              delivered, and every cut is chosen for freshness.
             </p>
             <ul className={styles.storyList}>
               <li>Hand-selected cuts, sold by the kilogram</li>

@@ -14,15 +14,25 @@ interface CartItem {
     pricing: { usd: number; zar: number; gbp: number };
 }
 
-const MEAT_CUTS = [
+interface MeatCut {
+    id: string;
+    title: string;
+    tag: string;
+    description: string;
+    pricing: { usd: number; zar: number; gbp: number };
+    frequency: 'weekly';
+    /** Product photo; cuts without one show a styled placeholder tile. */
+    image?: string;
+}
+
+const MEAT_CUTS: MeatCut[] = [
     {
         id: 'pork-chops',
         title: 'Pork Chops',
         tag: 'PORK',
         description: 'Tender, bone-in pork chops. Perfect for grilling or pan-frying with your favourite spices.',
         pricing: { usd: 5.45, zar: 101, gbp: 4.30 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1432139509613-5c4255a1d128?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'pork-trotters',
@@ -48,8 +58,7 @@ const MEAT_CUTS = [
         tag: 'PORK',
         description: 'Rich, fatty cut with amazing flavour. Perfect for slow roasting or crispy pork belly.',
         pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'pork-ribs',
@@ -102,8 +111,7 @@ const MEAT_CUTS = [
         tag: 'POULTRY',
         description: 'Lean, protein-packed chicken breast. Versatile for any recipe or meal prep.',
         pricing: { usd: 4.62, zar: 85, gbp: 3.65 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82571?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'mixed-portions',
@@ -120,8 +128,7 @@ const MEAT_CUTS = [
         tag: 'PREMIUM',
         description: 'The ultimate comfort food. Slow-cooked oxtail is a Zimbabwean favourite.',
         pricing: { usd: 12.86, zar: 238, gbp: 10.16 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'beef-short-ribs',
@@ -138,8 +145,7 @@ const MEAT_CUTS = [
         tag: 'BEEF',
         description: 'Traditional and nutritious. Perfect for hearty soups and slow-cooked dishes.',
         pricing: { usd: 4.50, zar: 83, gbp: 3.56 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'liver',
@@ -147,8 +153,7 @@ const MEAT_CUTS = [
         tag: 'SPECIALTY',
         description: 'Nutrient-rich organ meat. Pan-fried with onions — a classic high-protein meal.',
         pricing: { usd: 7.50, zar: 139, gbp: 5.93 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     },
     {
         id: 'goat-meat',
@@ -156,8 +161,7 @@ const MEAT_CUTS = [
         tag: 'SPECIALTY',
         description: 'Lean and flavourful. Popular for curries, stews, and traditional celebrations.',
         pricing: { usd: 6.92, zar: 128, gbp: 5.47 },
-        frequency: 'weekly' as const,
-        image: 'https://images.unsplash.com/photo-1558030006-450675393462?w=600&h=400&fit=crop&q=80'
+        frequency: 'weekly' as const
     }
 ];
 

@@ -1,6 +1,7 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
+import { SUBURBS } from '@/lib/delivery';
 
 /**
  * Hexad Market WhatsApp Chatbot
@@ -27,11 +28,6 @@ const MEAT_CUTS = [
     { id: 'goat-meat', title: 'Goat Meat', tag: '🔥 SPECIALTY', price: 6.92 },
 ];
 
-const SUBURBS = [
-    'Avondale', 'Borrowdale', 'Budiriro', 'Chitungwiza', 'Glen Lorne', 'Greendale',
-    'Harare CBD', 'Highlands', 'Kuwadzana', 'Mabelreign', 'Mbare', 'Mount Pleasant',
-    'Msasa', 'Newlands', 'Tynwald', 'Waterfalls', 'Westgate', 'Zimre Park'
-];
 
 type CartItem = { id: string; title: string; kg: number; price: number };
 type PendingCut = { id: string; title: string; price: number };

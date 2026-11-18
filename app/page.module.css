@@ -218,10 +218,17 @@
 }
 
 .productCard {
+  display: block;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.productCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(28, 20, 16, 0.12);
 }
 
 .productImageWrap {

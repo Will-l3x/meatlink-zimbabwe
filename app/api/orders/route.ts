@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
+import { whatsappService } from '@/lib/whatsapp';
 
 export async function GET(request: Request) {
     const guard = requireAdmin(request);
@@ -133,7 +134,17 @@ export async function POST(request: Request) {
                 return NextResponse.json({ success: false, error: 'Missing deliveryId or status' }, { status: 400 });
             }
 
-            const updateData: { status: 'PENDING' | 'ON_ROUTE' | 'DELIVERED' | 'DELAYED'; deliveredAt?: Date } = { status: status as 'PENDING' | 'ON_ROUTE' | 'DELIVERED' | 'DELAYED' };
+            const VALID = ['PENDING', 'ON_ROUTE', 'DELIVERED', 'DELAYED'] as const;
+            if (!VALID.includes(status)) {
+                return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+            }
+
+            const previous = await db.delivery.findUnique({ where: { id: deliveryId }, select: { status: true } });
+            if (!previous) {
+                return NextResponse.json({ success: false, error: 'Delivery not found' }, { status: 404 });
+            }
+
+            const updateData: { status: typeof VALID[number]; deliveredAt?: Date } = { status };
             if (status === 'DELIVERED') {
                 updateData.deliveredAt = new Date();
             }
@@ -153,6 +164,24 @@ export async function POST(request: Request) {
             });
 
             console.log(`[Orders] Delivery ${deliveryId} → ${status} (${updated.recipient.name})`);
+
+            // Keep the recipient informed; only message on an actual change.
+            if (previous.status !== status && updated.recipient.whatsapp) {
+                const name = updated.recipient.name;
+                const sender = updated.subscription.sender?.name;
+                const text =
+                    status === 'ON_ROUTE'
+                        ? `Hi ${name}! 🚚 Your Hexad Market order${sender ? ` from ${sender}` : ''} is on its way. Please make sure someone is home to receive it.`
+                        : status === 'DELIVERED'
+                            ? `Hi ${name}! ✅ Your Hexad Market order has been delivered. Enjoy, and thank you!`
+                            : status === 'DELAYED'
+                                ? `Hi ${name}, your Hexad Market delivery is running late today. We're sorry for the wait and will update you shortly.`
+                                : null;
+                if (text) {
+                    whatsappService.sendMessage({ to: updated.recipient.whatsapp, text })
+                        .catch((e) => console.error('[Orders] Recipient WhatsApp failed:', e));
+                }
+            }
 
             return NextResponse.json({ success: true, delivery: updated });
         }

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Authentication is not configured on the server' }, { status: 503 });
         }
 
-        const existing = await db.user.findUnique({
+        const existing = await db.user.findFirst({
             where: { email: normalizedEmail }
         });
 
@@ -67,6 +67,10 @@ export async function POST(request: Request) {
         const response = NextResponse.json({ success: true, user });
         return attachSessionCookie(response, createSessionToken(user.id, user.role));
     } catch (error) {
+        // Two sign-ups racing on the same email hit the partial unique index.
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+            return NextResponse.json({ error: 'An account with this email already exists' }, { status: 400 });
+        }
         console.error('Registration error:', error);
         return NextResponse.json({ error: 'Failed to register' }, { status: 500 });
     }

@@ -50,6 +50,14 @@ npm run lint
 
 ## Deployment checklist
 
+- Sync the database schema, then create the partial unique indexes (required once per database, safe to re-run):
+
+  ```bash
+  DATABASE_URL="mongodb+srv://..." npx prisma db push
+  DATABASE_URL="mongodb+srv://..." npm run db:indexes
+  ```
+
+  Without this step only one email user and one WhatsApp user can ever be created, because MongoDB treats missing values as duplicates under a plain unique index.
 - Set every variable above in Vercel (Production and Preview). Without `SESSION_SECRET`, login and registration return 503 in production.
 - Point ZB's result URL at `https://<domain>/api/payments/zb-smilenpay/callback` and switch `ZB_API_URL` / `ZB_SANDBOX` to production values.
 - Point Meta's webhook at `https://<domain>/api/whatsapp/webhook` with `WHATSAPP_VERIFY_TOKEN`.
@@ -59,6 +67,8 @@ npm run lint
 
 ## Known gaps
 
-- `/driver`, `/admin/accounts`, `/admin/finances` and `/admin/reports` still render hard-coded demo data and are not linked from the live admin panel.
-- Subscriptions created from a one-off payment are `isActive: true`; "Generate Next Batch" schedules deliveries for every active subscription regardless of frequency or payment. Decide on the recurring-billing model before enabling it for customers.
+- Checkout offers weekly / fortnightly / monthly frequency, but each payment is one-off. "Generate Next Batch" in the admin Orders tab schedules deliveries for every active subscription without taking a new payment. Decide on recurring billing before relying on it.
+- Seven cuts (Pork Chops, Pork Belly, Chicken Breast, Oxtail, Beef Trotters, Liver, Goat Meat) have no product photo and show a styled placeholder tile. Add photos to `public/images/cuts/` and set `image` in `app/shop/page.tsx`.
+- The Mixed Portions photo carries a stock-site watermark; replace it with a licensed copy.
 - Product catalogue and prices are hard-coded in `app/shop/page.tsx`, `app/page.tsx` and `lib/chatbot.ts` and must be kept in sync manually.
+- The privacy, terms and refund pages are plain-language drafts based on how the app works. Have them reviewed before launch.

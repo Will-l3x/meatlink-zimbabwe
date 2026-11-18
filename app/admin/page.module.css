@@ -49,7 +49,7 @@
     display: flex;
     flex-direction: column;
     position: fixed;
-    top: 64px;
+    top: var(--header-height);
     left: 0;
     bottom: 0;
     z-index: 100;
@@ -611,177 +611,6 @@
     color: var(--text-muted);
 }
 
-/* Mobile Responsive — Bottom Tab Bar */
-@media (max-width: 768px) {
-    .adminLayout {
-        flex-direction: column;
-    }
-
-    .sidebar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        top: auto;
-        width: 100%;
-        height: 60px;
-        flex-direction: row;
-        padding: 0;
-        z-index: 100;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        border-right: none;
-        overflow: hidden;
-    }
-
-    .sidebarLogo {
-        display: none;
-    }
-
-    .sidebarNav {
-        flex-direction: row;
-        gap: 0;
-        width: 100%;
-        justify-content: space-around;
-        padding: 0;
-    }
-
-    .sidebarLink {
-        flex-direction: column;
-        padding: 0.5rem 0.25rem;
-        gap: 0.15rem;
-        font-size: 0.6rem;
-        border-radius: 0;
-        flex: 1;
-        text-align: center;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .sidebarLink.active {
-        background: rgba(255, 255, 255, 0.15);
-    }
-
-    .sidebarIcon {
-        font-size: 1.2rem;
-        margin: 0;
-    }
-
-    .sidebarFooter {
-        display: none;
-    }
-
-    .mainContent {
-        margin-left: 0;
-        padding: 1rem 1rem 80px;
-    }
-
-    .pageHeader {
-        flex-direction: column;
-        gap: 0.75rem;
-        align-items: flex-start;
-    }
-
-    .pageHeader h1 {
-        font-size: 1.35rem;
-    }
-
-    .statsGrid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.75rem;
-    }
-
-    .statCard {
-        padding: 0.85rem;
-    }
-
-    .statValue {
-        font-size: 1.4rem;
-    }
-
-    .overviewGrid {
-        grid-template-columns: 1fr;
-    }
-
-    .financeStats {
-        grid-template-columns: 1fr;
-    }
-
-    .recipientGrid {
-        grid-template-columns: 1fr;
-    }
-
-    .toolbar {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .searchInput {
-        width: 100%;
-    }
-
-    .filterGroup {
-        width: 100%;
-        justify-content: stretch;
-    }
-
-    .filterGroup button {
-        flex: 1;
-    }
-
-    /* Tables: horizontal scroll */
-    .tableWrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .dataTable {
-        min-width: 600px;
-    }
-
-    .dataTable th,
-    .dataTable td {
-        padding: 0.55rem 0.65rem;
-        font-size: 0.72rem;
-        white-space: nowrap;
-    }
-
-    /* Kanban: vertical stack on mobile */
-    .kanbanBoard {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 1rem !important;
-        grid-template-columns: none !important;
-        min-height: auto !important;
-    }
-
-    .kanbanColumn {
-        width: 100%;
-    }
-
-    .kanbanCards {
-        max-height: 300px;
-    }
-
-    .orderCard {
-        padding: 0.75rem;
-    }
-
-    .orderActions button {
-        padding: 0.4rem 0.5rem;
-        font-size: 0.72rem;
-    }
-
-    .orderCounts {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    /* Generate/Refresh buttons */
-    .refreshBtn,
-    .generateBtn {
-        font-size: 0.75rem;
-        padding: 0.45rem 0.85rem;
-    }
-}
 
 /* ===== ORDERS & KANBAN ===== */
 .generateBtn {
@@ -1017,4 +846,176 @@
 
 .actionBtnPending:hover {
     background: rgba(184, 134, 11, 0.18);
+}
+
+/* Mobile Responsive — Bottom Tab Bar */
+@media (max-width: 768px) {
+    .adminLayout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        width: 100%;
+        height: 60px;
+        flex-direction: row;
+        padding: 0;
+        z-index: 100;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: none;
+        overflow: hidden;
+    }
+
+    .sidebarLogo {
+        display: none;
+    }
+
+    .sidebarNav {
+        flex-direction: row;
+        gap: 0;
+        width: 100%;
+        justify-content: space-around;
+        padding: 0;
+    }
+
+    .sidebarLink {
+        flex-direction: column;
+        padding: 0.5rem 0.25rem;
+        gap: 0.15rem;
+        font-size: 0.6rem;
+        border-radius: 0;
+        flex: 1;
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .sidebarLink.active {
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .sidebarIcon {
+        font-size: 1.2rem;
+        margin: 0;
+    }
+
+    .sidebarFooter {
+        display: none;
+    }
+
+    .mainContent {
+        margin-left: 0;
+        padding: 1rem 1rem 80px;
+    }
+
+    .pageHeader {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+
+    .pageHeader h1 {
+        font-size: 1.35rem;
+    }
+
+    .statsGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .statCard {
+        padding: 0.85rem;
+    }
+
+    .statValue {
+        font-size: 1.4rem;
+    }
+
+    .overviewGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .financeStats {
+        grid-template-columns: 1fr;
+    }
+
+    .recipientGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .toolbar {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .searchInput {
+        width: 100%;
+    }
+
+    .filterGroup {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .filterGroup button {
+        flex: 1;
+    }
+
+    /* Tables: horizontal scroll */
+    .tableWrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dataTable {
+        min-width: 600px;
+    }
+
+    .dataTable th,
+    .dataTable td {
+        padding: 0.55rem 0.65rem;
+        font-size: 0.72rem;
+        white-space: nowrap;
+    }
+
+    /* Kanban: vertical stack on mobile */
+    .kanbanBoard {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1rem !important;
+        grid-template-columns: none !important;
+        min-height: auto !important;
+    }
+
+    .kanbanColumn {
+        width: 100%;
+    }
+
+    .kanbanCards {
+        max-height: 300px;
+    }
+
+    .orderCard {
+        padding: 0.75rem;
+    }
+
+    .orderActions button {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.72rem;
+    }
+
+    .orderCounts {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Generate/Refresh buttons */
+    .refreshBtn,
+    .generateBtn {
+        font-size: 0.75rem;
+        padding: 0.45rem 0.85rem;
+    }
 }

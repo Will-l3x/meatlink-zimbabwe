@@ -30,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${fraunces.variable} ${dmSans.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${dmSans.variable}`}>
+      <body>
         <Navbar />
         <main style={{ paddingTop: "var(--header-height)" }}>{children}</main>
         <Footer />

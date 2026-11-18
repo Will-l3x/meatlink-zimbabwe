@@ -57,15 +57,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-                <div style={{
-                    padding: '0.75rem 1rem',
-                    background: 'rgba(196, 69, 54, 0.08)',
-                    color: 'var(--primary)',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    marginBottom: '1rem',
-                    border: '1px solid rgba(196, 69, 54, 0.2)'
-                }}>
+                <div role="alert" className={styles.error}>
                     {error}
                 </div>
             )}
@@ -76,6 +68,7 @@ export default function LoginPage() {
                     <input
                         type="email"
                         required
+                        autoComplete="email"
                         placeholder="name@example.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -86,6 +79,7 @@ export default function LoginPage() {
                     <input
                         type="password"
                         required
+                        autoComplete="current-password"
                         placeholder="••••••••"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
