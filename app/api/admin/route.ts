@@ -40,7 +40,7 @@ export async function GET(request: Request) {
             orderBy: { createdAt: 'desc' },
             include: {
                 sender: { select: { name: true, email: true } },
-                recipient: { select: { name: true, suburb: true, whatsapp: true } },
+                recipient: { select: { name: true, suburb: true, address: true, whatsapp: true } },
             }
         });
 

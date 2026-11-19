@@ -7,7 +7,7 @@ import { fulfilledSubscriptionId } from '@/lib/order-fulfillment';
 import { requireSession } from '@/lib/session';
 import { priceCart, type Currency } from '@/lib/catalog';
 import { PLAN_ID } from '@/lib/plans';
-import { planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
+import { fullAddress, planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 /**
  * POST /api/payments/zb-smilenpay
@@ -37,8 +37,8 @@ function buildOrder(body: Record<string, unknown>, currency: Currency): BuiltOrd
 
     const recipientName = text(meta.recipientName, 100);
     const recipientWhatsApp = text(meta.recipientWhatsApp, 30);
-    const recipientAddress = text(meta.recipientAddress, 300);
-    const recipientSuburb = text(meta.recipientSuburb, 100);
+    // One full address (house number, street, suburb); older clients may still send the suburb separately.
+    const recipientAddress = fullAddress(text(meta.recipientAddress, 300), text(meta.recipientSuburb, 100));
     const digits = recipientWhatsApp.replace(/\D/g, '').length;
     if (!recipientName || !recipientAddress || digits < 9 || digits > 15) {
         return { ok: false, error: 'Please check the delivery details and try again.', status: 400 };
@@ -66,7 +66,6 @@ function buildOrder(body: Record<string, unknown>, currency: Currency): BuiltOrd
         recipientName,
         recipientWhatsApp,
         recipientAddress,
-        recipientSuburb,
         senderName: text(meta.senderName, 100),
         ...(isPlan ? { plan: PLAN_ID, planFrequency: freq, autoRenew, payerWhatsApp: autoRenew ? text(meta.payerWhatsApp, 30) : '' } : {}),
     };

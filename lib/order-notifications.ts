@@ -1,6 +1,6 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
-import { planDeliveriesLabel, planFrequency } from '@/lib/delivery';
+import { fullAddress, planDeliveriesLabel, planFrequency } from '@/lib/delivery';
 
 /** Owner WhatsApp (E.164 without +). Override with ORDER_NOTIFY_WHATSAPP in production. */
 const DEFAULT_OWNER_WHATSAPP = '27765762104';
@@ -90,7 +90,7 @@ function buildOrderMessage(params: {
             `*Delivery:*\n` +
             `${meta.recipientName || '—'}\n` +
             `📱 ${meta.recipientWhatsApp || '—'}\n` +
-            `📍 ${meta.recipientAddress || '—'}${meta.recipientSuburb ? `, ${meta.recipientSuburb}` : ''}\n\n`;
+            `📍 ${fullAddress(meta.recipientAddress, meta.recipientSuburb) || '—'}\n\n`;
     }
 
     if (customerName || customerEmail || customerWhatsApp) {

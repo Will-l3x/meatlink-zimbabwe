@@ -245,7 +245,8 @@
 }
 
 .formGroup input,
-.formGroup select {
+.formGroup select,
+.formGroup textarea {
     width: 100%;
     background: var(--surface-elevated);
     border: 1px solid rgba(28, 20, 16, 0.22);
@@ -258,14 +259,18 @@
     box-sizing: border-box;
 }
 .formGroup input:focus,
-.formGroup select:focus {
+.formGroup select:focus,
+.formGroup textarea:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(193, 41, 46, 0.12);
 }
 
-.formGroup input::placeholder { color: var(--text-light); }
+.formGroup input::placeholder,
+.formGroup textarea::placeholder { color: var(--text-light); }
+.formGroup textarea { resize: vertical; min-height: 4.5rem; line-height: 1.4; }
 .formGroup input[aria-invalid="true"],
+.formGroup textarea[aria-invalid="true"],
 .formGroup select[aria-invalid="true"] { border-color: var(--error); }
 
 .fieldHint {

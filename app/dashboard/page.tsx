@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
-import { planDeliveriesLabel, PLAN_FREQUENCIES, type PlanFrequency } from '@/lib/delivery';
+import { fullAddress, planDeliveriesLabel, PLAN_FREQUENCIES, type PlanFrequency } from '@/lib/delivery';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
 
@@ -23,7 +23,8 @@ interface Recipient {
     name: string;
     whatsapp: string;
     address: string;
-    suburb: string;
+    /** Only on recipients saved before the full-address field. */
+    suburb?: string;
 }
 
 interface Delivery {
@@ -61,7 +62,7 @@ export default function DashboardPage() {
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [showAddRecipient, setShowAddRecipient] = useState(false);
     const [newRecipient, setNewRecipient] = useState({
-        name: '', whatsapp: '', address: '', suburb: ''
+        name: '', whatsapp: '', address: ''
     });
 
     useEffect(() => {
@@ -132,7 +133,7 @@ export default function DashboardPage() {
 
     const handleAddRecipient = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newRecipient.name || !newRecipient.whatsapp || !newRecipient.address || !newRecipient.suburb) return;
+        if (!newRecipient.name || !newRecipient.whatsapp || !newRecipient.address.trim()) return;
 
         const recipient: Recipient = {
             id: 'rec_' + Date.now().toString(36),
@@ -142,7 +143,7 @@ export default function DashboardPage() {
         const updated = [...recipients, recipient];
         setRecipients(updated);
         localStorage.setItem(`hexad_recipients_${user?.id}`, JSON.stringify(updated));
-        setNewRecipient({ name: '', whatsapp: '', address: '', suburb: '' });
+        setNewRecipient({ name: '', whatsapp: '', address: '' });
         setShowAddRecipient(false);
     };
 
@@ -331,16 +332,10 @@ export default function DashboardPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Delivery address"
+                                placeholder="Full address (e.g. 12 Main Street, Avondale)"
+                                aria-label="Full delivery address"
                                 value={newRecipient.address}
                                 onChange={(e) => setNewRecipient({ ...newRecipient, address: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Suburb (e.g. Mabelreign)"
-                                value={newRecipient.suburb}
-                                onChange={(e) => setNewRecipient({ ...newRecipient, suburb: e.target.value })}
                                 required
                             />
                             <Button fullWidth variant="primary">Save Recipient</Button>
@@ -365,7 +360,7 @@ export default function DashboardPage() {
                                     <div className={styles.recipientInfo}>
                                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{r.name}</div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                            {r.suburb}, Harare • {r.whatsapp}
+                                            {fullAddress(r.address, r.suburb)} • {r.whatsapp}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/session';
 import { PLAN_ID, renewalToken } from '@/lib/plans';
-import { planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
+import { fullAddress, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
             orderBy: { createdAt: 'desc' },
             take: 50,
             include: {
-                recipient: { select: { name: true, suburb: true } },
+                recipient: { select: { name: true, address: true, suburb: true } },
                 hamper: { select: { name: true } },
                 deliveries: { orderBy: { scheduledDate: 'desc' }, take: 1, select: { status: true, scheduledDate: true } },
             },
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
                 id: sub.id,
                 pack: sub.hamper.name,
                 recipientName: sub.recipient.name,
-                location: `${sub.recipient.suburb || 'Harare'}, Harare`,
+                location: fullAddress(sub.recipient.address, sub.recipient.suburb) || 'Harare',
                 date: sub.createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
                 deliveryDate: deliveryDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
                 status: STATUS_LABEL[delivery?.status ?? 'PENDING'] ?? 'Scheduled',

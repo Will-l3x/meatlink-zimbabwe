@@ -42,6 +42,17 @@ export function planDeliveriesLabel(freq: PlanFrequency, count = PLAN_FREQUENCIE
     return `${count} deliver${count === 1 ? 'y' : 'ies'}, every 2 weeks`;
 }
 
+/**
+ * One-line delivery address. Customers now type the full address; older
+ * records kept the suburb separately, so add it back when it's missing.
+ */
+export function fullAddress(address?: string | null, suburb?: string | null): string {
+    const a = (address || '').trim();
+    const sub = (suburb || '').trim();
+    if (!sub || sub === 'Harare' || a.toLowerCase().includes(sub.toLowerCase())) return a || sub;
+    return a ? `${a}, ${sub}` : sub;
+}
+
 /** Next Wednesday at 09:00 server time (deliveries run on Wednesdays). */
 export function nextDeliveryDate(from: Date = new Date()): Date {
     const daysUntilWednesday = (3 - from.getDay() + 7) % 7 || 7;

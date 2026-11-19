@@ -53,9 +53,8 @@ export async function GET(request: Request) {
         success: true,
         plan: {
             id: sub.id,
-            // First name and suburb only: the link may be forwarded.
+            // First name only, no address: the link may be forwarded.
             recipientName: sub.recipient.name.split(' ')[0],
-            suburb: sub.recipient.suburb,
             items: parseCart(sub.cart).map((l) => ({ title: l.title, kg: l.kg })),
             frequency: planFrequency(sub.frequency),
             deliveriesPerCycle: sub.deliveriesPerCycle ?? PLAN_FREQUENCIES[planFrequency(sub.frequency)].deliveries,

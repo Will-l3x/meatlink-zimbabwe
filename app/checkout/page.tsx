@@ -6,7 +6,7 @@ import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
-import { SUBURBS, PLAN_FREQUENCIES, planDeliveriesLabel, type PlanFrequency } from '@/lib/delivery';
+import { fullAddress, PLAN_FREQUENCIES, planDeliveriesLabel, type PlanFrequency } from '@/lib/delivery';
 import { CATALOG } from '@/lib/catalog';
 
 interface CartItem {
@@ -21,7 +21,8 @@ interface ContactInfo {
     name: string;
     whatsapp: string;
     address: string;
-    suburb: string;
+    /** Saved before the full-address field; folded into the address when used. */
+    suburb?: string;
     nickname?: string;
 }
 
@@ -74,7 +75,6 @@ function CheckoutContent() {
         recipientName: '',
         recipientWhatsApp: '',
         recipientAddress: '',
-        recipientSuburb: '',
     });
 
     useEffect(() => {
@@ -93,7 +93,13 @@ function CheckoutContent() {
         }
         // Restore what was typed before a detour to log in / sign up.
         const draft = readStoredJson<Partial<typeof formData> | null>(CHECKOUT_DRAFT_KEY, null);
-        if (draft) setFormData((prev) => ({ ...prev, ...draft }));
+        if (draft) {
+            setFormData((prev) => ({
+                recipientName: draft.recipientName ?? prev.recipientName,
+                recipientWhatsApp: draft.recipientWhatsApp ?? prev.recipientWhatsApp,
+                recipientAddress: draft.recipientAddress ?? prev.recipientAddress,
+            }));
+        }
         const savedPlan = readStoredJson<Partial<PlanPrefs> | null>(CHECKOUT_PLAN_KEY, null);
         if (savedPlan) setPlanPrefs((prev) => ({ ...prev, ...savedPlan, plan: normalizePlanChoice(savedPlan.plan) }));
         setHydrated(true);
@@ -144,8 +150,7 @@ function CheckoutContent() {
             ...formData,
             recipientName: contact.name,
             recipientWhatsApp: contact.whatsapp,
-            recipientAddress: contact.address,
-            recipientSuburb: contact.suburb,
+            recipientAddress: fullAddress(contact.address, contact.suburb),
         });
     };
 
@@ -161,8 +166,7 @@ function CheckoutContent() {
             id: `c-${Date.now()}`,
             name: formData.recipientName,
             whatsapp: formData.recipientWhatsApp,
-            address: formData.recipientAddress,
-            suburb: formData.recipientSuburb,
+            address: formData.recipientAddress.trim(),
             nickname: contactNickname || formData.recipientName,
         };
         const updated = [...savedContacts, newContact];
@@ -178,8 +182,11 @@ function CheckoutContent() {
         else if (phoneDigits(formData.recipientWhatsApp) < 9 || phoneDigits(formData.recipientWhatsApp) > 15) {
             errors.whatsapp = 'Enter a full number, e.g. 0771 234 567 or +263 771 234 567';
         }
-        if (!formData.recipientAddress.trim()) errors.address = 'Delivery address is required';
-        if (!formData.recipientSuburb) errors.suburb = 'Please select a suburb';
+        const address = formData.recipientAddress.trim();
+        if (!address) errors.address = 'Delivery address is required';
+        else if (address.length < 10 || (!/\d/.test(address) && !address.includes(','))) {
+            errors.address = 'Please give the full address: house number, street and suburb';
+        }
         if (cartItems.length === 0) errors.cart = 'Your cart is empty';
         const payerDigits = phoneDigits(planPrefs.payerWhatsApp);
         if (isPlan && planPrefs.autoRenew && planPrefs.payerWhatsApp.trim() && (payerDigits < 9 || payerDigits > 15)) {
@@ -187,9 +194,9 @@ function CheckoutContent() {
         }
         setFormErrors(errors);
         // On phones the button sits below the form, so bring the first problem into view.
-        const firstField = (['payerWhatsApp', 'name', 'whatsapp', 'address', 'suburb'] as const).find((k) => errors[k]);
+        const firstField = (['payerWhatsApp', 'name', 'whatsapp', 'address'] as const).find((k) => errors[k]);
         if (firstField) {
-            const id = { payerWhatsApp: 'payerWhatsApp', name: 'recipientName', whatsapp: 'recipientWhatsApp', address: 'recipientAddress', suburb: 'recipientSuburb' }[firstField];
+            const id = { payerWhatsApp: 'payerWhatsApp', name: 'recipientName', whatsapp: 'recipientWhatsApp', address: 'recipientAddress' }[firstField];
             const el = document.getElementById(id);
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el?.focus({ preventScroll: true });
@@ -245,8 +252,7 @@ function CheckoutContent() {
                         } : {}),
                         recipientName: formData.recipientName,
                         recipientWhatsApp: formData.recipientWhatsApp,
-                        recipientAddress: formData.recipientAddress,
-                        recipientSuburb: formData.recipientSuburb,
+                        recipientAddress: formData.recipientAddress.trim(),
                         senderName: user.name,
                         source: 'website_checkout',
                     },
@@ -472,7 +478,7 @@ function CheckoutContent() {
                                                 </div>
                                                 <div className={styles.contactCardInfo}>
                                                     <span className={styles.contactCardName}>{c.nickname || c.name}</span>
-                                                    <span className={styles.contactCardSub}>{c.suburb}</span>
+                                                    <span className={styles.contactCardSub}>{fullAddress(c.address, c.suburb)}</span>
                                                 </div>
                                                 {selectedContactId === c.id && (
                                                     <span className={styles.contactTick}>✓</span>
@@ -513,29 +519,19 @@ function CheckoutContent() {
                                         : <p className={styles.fieldHint}>We&apos;ll message them when it&apos;s on the way.</p>}
                                 </div>
                                 <div className={`${styles.formGroup} ${styles.formGroupFull}`}>
-                                    <label htmlFor="recipientAddress">Street address in Harare *</label>
-                                    <input
+                                    <label htmlFor="recipientAddress">Full delivery address in Harare *</label>
+                                    <textarea
                                         id="recipientAddress"
+                                        rows={2}
                                         autoComplete="off"
                                         aria-invalid={!!formErrors.address}
                                         value={formData.recipientAddress}
-                                        onChange={e => { setFormData({ ...formData, recipientAddress: e.target.value }); setSelectedContactId(''); }}
-                                        placeholder="e.g. 12 Main Street"
+                                        onChange={e => { setFormData({ ...formData, recipientAddress: e.target.value }); setSelectedContactId(''); if (formErrors.address) setFormErrors({ ...formErrors, address: '' }); }}
+                                        placeholder="e.g. 12 Main Street, Avondale"
                                     />
-                                    {formErrors.address && <p className={styles.fieldError}>{formErrors.address}</p>}
-                                </div>
-                                <div className={styles.formGroup}>
-                                    <label htmlFor="recipientSuburb">Suburb *</label>
-                                    <select
-                                        id="recipientSuburb"
-                                        aria-invalid={!!formErrors.suburb}
-                                        value={formData.recipientSuburb}
-                                        onChange={e => { setFormData({ ...formData, recipientSuburb: e.target.value }); setSelectedContactId(''); }}
-                                    >
-                                        <option value="">Select suburb...</option>
-                                        {SUBURBS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                    {formErrors.suburb && <p className={styles.fieldError}>{formErrors.suburb}</p>}
+                                    {formErrors.address
+                                        ? <p className={styles.fieldError}>{formErrors.address}</p>
+                                        : <p className={styles.fieldHint}>House or flat number, street and suburb. Add a landmark if it&apos;s hard to find.</p>}
                                 </div>
                             </div>
 
@@ -629,7 +625,7 @@ function CheckoutContent() {
                                 </div>
                                 <div className={styles.reviewField}>
                                     <span className={styles.reviewLabel}>Address</span>
-                                    <span className={styles.reviewValue}>{formData.recipientAddress}, {formData.recipientSuburb}, Harare</span>
+                                    <span className={styles.reviewValue}>{formData.recipientAddress.trim()}, Harare</span>
                                 </div>
                                 {isPlan && (
                                     <div className={styles.reviewField}>

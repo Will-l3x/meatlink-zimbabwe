@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import { fullAddress } from '@/lib/delivery';
 
 type Tab = 'overview' | 'orders' | 'users' | 'subscriptions' | 'finances';
 
@@ -85,7 +86,7 @@ interface AdminData {
         cycleAmount?: number | null;
         cycleCurrency?: string | null;
         sender: { name: string; email: string };
-        recipient: { name: string; suburb: string; whatsapp: string };
+        recipient: { name: string; suburb: string; address: string; whatsapp: string };
     }>;
     transactions: Array<{
         id: string;
@@ -507,9 +508,9 @@ export default function AdminPage() {
                                 <div key={r.id} className={styles.recipientCard}>
                                     <div className={styles.recipientHeader}>
                                         <strong>{r.name}</strong>
-                                        <span className={styles.suburb}>{r.suburb}</span>
                                     </div>
                                     <div className={styles.recipientMeta}>
+                                        <span>📍 {fullAddress(r.address, r.suburb)}</span>
                                         <span>📱 {r.whatsapp}</span>
                                         <span>🔗 Linked by: {r.senderName}</span>
                                     </div>
@@ -528,7 +529,7 @@ export default function AdminPage() {
                                     <tr>
                                         <th>Sender</th>
                                         <th>Recipient</th>
-                                        <th>Suburb</th>
+                                        <th>Address</th>
                                         <th>Frequency</th>
                                         <th>Next Delivery</th>
                                         <th>Status</th>
@@ -547,7 +548,7 @@ export default function AdminPage() {
                                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{sub.sender.email}</div>
                                                 </td>
                                                 <td style={{ fontWeight: 600 }}>{sub.recipient.name}</td>
-                                                <td>{sub.recipient.suburb}</td>
+                                                <td>{fullAddress(sub.recipient.address, sub.recipient.suburb)}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.frequency === 'WEEKLY' ? styles.badgeWeekly : styles.badgeMonthly}`}>
                                                         {sub.plan ? `${sub.frequency.replace('_', '-')} PLAN` : sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
@@ -733,7 +734,7 @@ export default function AdminPage() {
                                             <div key={order.id} className={styles.orderCard}>
                                                 <div className={styles.orderRecipient}>{order.recipient.name}</div>
                                                 <div className={styles.orderMeta}>
-                                                    📍 {order.recipient.suburb} • 📱 {order.recipient.whatsapp}
+                                                    📍 {fullAddress(order.recipient.address, order.recipient.suburb)} • 📱 {order.recipient.whatsapp}
                                                 </div>
                                                 <div className={styles.orderMeta}>
                                                     🎁 {order.subscription.hamper?.name || 'Pack'}
@@ -767,7 +768,7 @@ export default function AdminPage() {
                                             <div key={order.id} className={styles.orderCard}>
                                                 <div className={styles.orderRecipient}>{order.recipient.name}</div>
                                                 <div className={styles.orderMeta}>
-                                                    📍 {order.recipient.suburb} • {order.recipient.address}
+                                                    📍 {fullAddress(order.recipient.address, order.recipient.suburb)}
                                                 </div>
                                                 <div className={styles.orderMeta}>
                                                     🎁 {order.subscription.hamper?.name || 'Pack'}
@@ -798,7 +799,7 @@ export default function AdminPage() {
                                             <div key={order.id} className={styles.orderCard}>
                                                 <div className={styles.orderRecipient}>{order.recipient.name}</div>
                                                 <div className={styles.orderMeta}>
-                                                    📍 {order.recipient.suburb}
+                                                    📍 {fullAddress(order.recipient.address, order.recipient.suburb)}
                                                 </div>
                                                 <div className={styles.orderMeta}>
                                                     🎁 {order.subscription.hamper?.name || 'Pack'}
@@ -825,7 +826,7 @@ export default function AdminPage() {
                                             <div key={order.id} className={styles.orderCard}>
                                                 <div className={styles.orderRecipient}>{order.recipient.name}</div>
                                                 <div className={styles.orderMeta}>
-                                                    📍 {order.recipient.suburb}
+                                                    📍 {fullAddress(order.recipient.address, order.recipient.suburb)}
                                                 </div>
                                                 <div className={styles.orderMeta}>
                                                     🎁 {order.subscription.hamper?.name || 'Pack'}

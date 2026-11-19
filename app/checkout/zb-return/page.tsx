@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
 import { readStoredJson, writeStoredJson, removeStoredItem } from '@/lib/storage';
-import { planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
+import { fullAddress, planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 type Outcome = { status: 'processing' | 'success' | 'failed'; message: string; title?: string };
 
@@ -24,6 +24,7 @@ interface PaymentInfo {
 interface PendingOrder {
     senderId?: string;
     recipientName?: string;
+    recipientAddress?: string;
     recipientSuburb?: string;
     cartItems?: Array<{ title: string; kg: number }>;
 }
@@ -85,7 +86,7 @@ function recordLocalOutcome(payment: PaymentInfo): string | undefined {
                 id: entryId,
                 recipientName: pending?.recipientName || 'Recipient',
                 date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-                location: `${pending?.recipientSuburb || 'Harare'}, Harare`,
+                location: fullAddress(pending?.recipientAddress, pending?.recipientSuburb) || 'Harare',
                 status: 'Scheduled',
                 pack: pending?.cartItems?.map((i) => `${i.title} (${i.kg}kg)`).join(', ') || 'Hexad Market Order',
             });

@@ -9,7 +9,6 @@ import { planDeliveriesLabel, PLAN_FREQUENCIES, type PlanFrequency } from '@/lib
 interface PlanInfo {
     id: string;
     recipientName: string;
-    suburb: string;
     items: Array<{ title: string; kg: number }>;
     frequency: PlanFrequency;
     deliveriesPerCycle: number;
@@ -116,7 +115,7 @@ function RenewContent() {
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>{status}</p>
 
             <div style={{ background: 'var(--background)', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', textAlign: 'left' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{freq.cadence.replace(/^./, (c) => c.toUpperCase())} · {plan.suburb}, Harare</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{freq.cadence.replace(/^./, (c) => c.toUpperCase())} · Harare</div>
                 {plan.items.map((i) => (
                     <div key={i.title} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.95rem' }}>
                         <span>{i.title}</span>

@@ -1,7 +1,7 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 import { notifyOrderPaymentCompleted } from '@/lib/order-notifications';
-import { nextDeliveryDate, planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
+import { fullAddress, nextDeliveryDate, planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 import { applyRenewalPayment, PLAN_ID } from '@/lib/plans';
 
 /**
@@ -95,19 +95,27 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
     const items = (meta.cart?.length ? meta.cart : meta.cartItems) || [];
     const recipientName = (meta.recipientName || '').trim();
     const recipientWhatsApp = (meta.recipientWhatsApp || '').trim();
-    const recipientAddress = (meta.recipientAddress || '').trim();
-    const recipientSuburb = (meta.recipientSuburb || 'Harare').trim();
+    // Full address as typed; bot orders made before the change may carry a separate suburb.
+    const recipientAddress = fullAddress(meta.recipientAddress, meta.recipientSuburb);
 
     if (!recipientName || !recipientWhatsApp || !recipientAddress) {
         console.warn(`[Fulfilment] Payment ${paymentId} has no recipient details; skipping delivery creation`);
         return null;
     }
 
-    const recipient =
-        (await db.recipient.findFirst({ where: { whatsapp: recipientWhatsApp } })) ??
-        (await db.recipient.create({
-            data: { name: recipientName, whatsapp: recipientWhatsApp, address: recipientAddress, suburb: recipientSuburb },
-        }));
+    // Same WhatsApp number = same person. If they've moved or the address was
+    // corrected, deliver to the address on this order, not the old one.
+    const existing = await db.recipient.findFirst({ where: { whatsapp: recipientWhatsApp } });
+    const recipient = existing
+        ? existing.address === recipientAddress && existing.name === recipientName
+            ? existing
+            : await db.recipient.update({
+                where: { id: existing.id },
+                data: { name: recipientName, address: recipientAddress, suburb: '' },
+            })
+        : await db.recipient.create({
+            data: { name: recipientName, whatsapp: recipientWhatsApp, address: recipientAddress, suburb: '' },
+        });
 
     const hamperName = (describeCart(items) || `Hexad Market order ${payment.orderReference || ''}`).trim().slice(0, 200);
     const currency = payment.currency.toUpperCase();
