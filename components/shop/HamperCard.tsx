@@ -7,6 +7,9 @@ interface Pricing {
     gbp: number;
 }
 
+const MIN_KG = 1;
+const MAX_KG = 20;
+
 interface HamperCardProps {
     id: string;
     title: string;
@@ -66,45 +69,33 @@ export default function HamperCard({
                 <p className={styles.description}>{description}</p>
 
                 <div className={styles.pricing}>
-                    <div className={styles.priceItem}>
-                        <span className={styles.currency}>USD/kg</span>
-                        <span className={`${styles.amount} ${styles.amountMain}`}>${pricing.usd.toFixed(2)}</span>
-                    </div>
-                    <div className={styles.priceItem}>
-                        <span className={styles.currency}>ZAR/kg</span>
-                        <span className={styles.amount}>R{pricing.zar}</span>
-                    </div>
-                    <div className={styles.priceItem}>
-                        <span className={styles.currency}>GBP/kg</span>
-                        <span className={styles.amount}>£{pricing.gbp.toFixed(2)}</span>
-                    </div>
+                    <span className={styles.amountMain}>${pricing.usd.toFixed(2)}<span className={styles.perKg}> / kg</span></span>
+                    <span className={styles.otherCurrencies}>≈ R{pricing.zar} · £{pricing.gbp.toFixed(2)}</span>
                 </div>
 
-                {/* Kg Slider */}
-                <div className={styles.sliderSection}>
-                    <div className={styles.sliderHeader}>
-                        <span className={styles.kgLabel}>{kg}kg</span>
-                        <span className={styles.kgPrice}>${(pricing.usd * kg).toFixed(2)}</span>
+                <div className={styles.qtyRow}>
+                    <div className={styles.stepper} role="group" aria-label={`Weight of ${title}`}>
+                        <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => setKg((k) => Math.max(MIN_KG, k - 1))}
+                            disabled={kg <= MIN_KG}
+                            aria-label="1 kg less"
+                        >−</button>
+                        <span className={styles.stepValue} aria-live="polite">{kg} kg</span>
+                        <button
+                            type="button"
+                            className={styles.stepBtn}
+                            onClick={() => setKg((k) => Math.min(MAX_KG, k + 1))}
+                            disabled={kg >= MAX_KG}
+                            aria-label="1 kg more"
+                        >+</button>
                     </div>
-                    <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={kg}
-                        onChange={(e) => setKg(Number(e.target.value))}
-                        className={styles.slider}
-                        aria-label={`Weight of ${title} in kilograms`}
-                        style={{ '--fill': `${((kg - 1) / 9) * 100}%` } as React.CSSProperties}
-                    />
-                    <div className={styles.sliderLabels}>
-                        <span>1kg</span>
-                        <span>5kg</span>
-                        <span>10kg</span>
-                    </div>
+                    <span className={styles.lineTotal}>${(pricing.usd * kg).toFixed(2)}</span>
                 </div>
 
                 <button type="button" className={styles.addBtn} onClick={handleAdd}>
-                    Add {kg}kg to cart · ${(pricing.usd * kg).toFixed(2)}
+                    {cartQty > 0 ? `Add ${kg} kg more` : 'Add to cart'}
                 </button>
             </div>
         </div>

@@ -32,6 +32,7 @@ interface Delivery {
     location: string;
     status: string;
     pack: string;
+    deliveryDate?: string;
 }
 
 export default function DashboardPage() {
@@ -48,7 +49,7 @@ export default function DashboardPage() {
     useEffect(() => {
         const storedUser = localStorage.getItem('hexad_user');
         if (!storedUser) {
-            router.push('/login');
+            router.push('/login?next=/dashboard');
             return;
         }
         const parsed = JSON.parse(storedUser);
@@ -68,6 +69,23 @@ export default function DashboardPage() {
         }
 
         setLoading(false);
+
+        // Orders from the server (any device, live delivery status) replace the local copy.
+        let cancelled = false;
+        fetch('/api/my-orders', { cache: 'no-store' })
+            .then(async (res) => {
+                if (res.status === 401) {
+                    localStorage.removeItem('hexad_user');
+                    router.push('/login?next=/dashboard');
+                    return;
+                }
+                const data = await res.json();
+                if (!cancelled && data.success && Array.isArray(data.orders) && data.orders.length > 0) {
+                    setDeliveries(data.orders);
+                }
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
     }, [router]);
 
     const handleAddRecipient = (e: React.FormEvent) => {
@@ -104,10 +122,10 @@ export default function DashboardPage() {
         <div className={styles.container}>
             <header className={styles.header}>
                 <div>
-                    <span className={styles.label}>Dashboard</span>
+                    <span className={styles.label}>My orders</span>
                     <h1>Welcome, {user?.name?.split(' ')[0] || 'User'} 👋</h1>
                 </div>
-                <Button href="/shop">Send New Pack</Button>
+                <Button href="/shop">New order</Button>
             </header>
 
             {/* Stats Cards */}
@@ -120,18 +138,18 @@ export default function DashboardPage() {
                                 {deliveries[0].pack}
                             </div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                For {deliveries[0].recipientName} · ordered {deliveries[0].date} · delivered on Wednesday
+                                For {deliveries[0].recipientName} · {deliveries[0].status} · delivery {deliveries[0].deliveryDate || 'on Wednesday'}
                             </div>
                         </>
                     ) : (
                         <>
                             <div style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0.5rem 0', color: 'var(--text)' }}>
-                                No active order yet
+                                No orders yet
                             </div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                Browse the shop and place an order to start feeding your family.
+                                Pick cuts in the shop, add the delivery details, and pay. It takes about two minutes, and delivery in Harare is free.
                             </div>
-                            <Button href="/shop" style={{ marginTop: '1rem' }}>Shop Premium Cuts →</Button>
+                            <Button href="/shop" style={{ marginTop: '1rem' }}>Start your first order →</Button>
                         </>
                     )}
                 </div>
@@ -144,7 +162,7 @@ export default function DashboardPage() {
                     <div className={styles.feedHeader}>
                         <h3>Order history</h3>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            Orders placed from this device. Your family gets WhatsApp updates as each one is delivered.
+                            Your family gets a WhatsApp message when each order is on the way and when it&apos;s delivered.
                         </p>
                     </div>
 
@@ -166,7 +184,7 @@ export default function DashboardPage() {
                                     <div className={styles.orderInfo}>
                                         <h4>{del.pack}</h4>
                                         <span>For {del.recipientName} · {del.location}</span>
-                                        <span>Ordered {del.date}</span>
+                                        <span>Ordered {del.date}{del.deliveryDate ? ` · delivery ${del.deliveryDate}` : ''}</span>
                                     </div>
                                     <span className={styles.orderStatus}>{del.status}</span>
                                 </div>

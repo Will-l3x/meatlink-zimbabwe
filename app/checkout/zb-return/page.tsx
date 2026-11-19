@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import { whatsappLink } from '@/lib/contact';
 import { readStoredJson, writeStoredJson, removeStoredItem } from '@/lib/storage';
 
 type Outcome = { status: 'processing' | 'success' | 'failed'; message: string };
@@ -44,8 +45,17 @@ interface LocalDelivery {
 const POLL_INTERVAL_MS = 3000;
 const MAX_ATTEMPTS = 20;
 
-/** Mirror the confirmed payment into this browser's local dashboard data. */
-function recordLocalOutcome(payment: PaymentInfo) {
+function nextWednesdayLabel(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + ((3 - d.getDay() + 7) % 7 || 7));
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/**
+ * Mirror the confirmed payment into this browser's local dashboard data.
+ * Returns the recipient's name (if known) for the confirmation message.
+ */
+function recordLocalOutcome(payment: PaymentInfo): string | undefined {
     const user = readStoredJson<StoredUser | null>('hexad_user', null);
 
     if (payment.purpose === 'WALLET_TOPUP') {
@@ -55,7 +65,7 @@ function recordLocalOutcome(payment: PaymentInfo) {
             user[key] = (Number(user[key]) || 0) + payment.amount;
             writeStoredJson('hexad_user', user);
         }
-        return;
+        return undefined;
     }
 
     const pending = readStoredJson<PendingOrder | null>('hexad_pending_zb_order', null);
@@ -79,6 +89,8 @@ function recordLocalOutcome(payment: PaymentInfo) {
 
     removeStoredItem('hexad_cart');
     removeStoredItem('hexad_pending_zb_order');
+    removeStoredItem('hexad_checkout_draft');
+    return pending?.recipientName;
 }
 
 function ZBReturnContent() {
@@ -91,8 +103,8 @@ function ZBReturnContent() {
 
     // Outcomes we can determine from the URL alone, without polling.
     const urlOutcome = useMemo<Outcome | null>(() => {
-        if (urlStatus === 'cancelled') return { status: 'failed', message: 'Payment was cancelled.' };
-        if (urlStatus === 'failed') return { status: 'failed', message: 'Payment failed. Please try again.' };
+        if (urlStatus === 'cancelled') return { status: 'failed', message: 'You cancelled the payment, so nothing was charged.' };
+        if (urlStatus === 'failed') return { status: 'failed', message: 'The payment didn\'t go through, so nothing was charged. You can try again or use another payment method.' };
         if (!paymentId && !orderRef) return { status: 'failed', message: 'Invalid payment session. No payment reference found.' };
         return null;
     }, [urlStatus, paymentId, orderRef]);
@@ -124,12 +136,13 @@ function ZBReturnContent() {
                 if (data.success && data.payment) {
                     const payment = data.payment as PaymentInfo;
                     if (payment.status === 'COMPLETED') {
-                        recordLocalOutcome(payment);
+                        const recipientName = recordLocalOutcome(payment);
                         finish({
                             status: 'success',
                             message: payment.purpose === 'WALLET_TOPUP'
                                 ? 'Your wallet has been topped up successfully!'
-                                : 'Your order payment has been confirmed! We have scheduled the delivery.',
+                                : `Your order is confirmed for delivery on ${nextWednesdayLabel()}. ` +
+                                  `We'll WhatsApp ${recipientName || 'the recipient'} when it's on the way, and you can follow it under My orders.`,
                         });
                         return;
                     }
@@ -192,9 +205,9 @@ function ZBReturnContent() {
                             ? 'var(--error, #ef4444)'
                             : 'var(--foreground)',
                 }}>
-                    {view.status === 'processing' && 'Verifying Payment...'}
-                    {view.status === 'success' && 'Payment Successful!'}
-                    {view.status === 'failed' && 'Payment Failed'}
+                    {view.status === 'processing' && 'Confirming your payment…'}
+                    {view.status === 'success' && 'Order confirmed'}
+                    {view.status === 'failed' && 'Payment not completed'}
                 </h1>
 
                 <p style={{
@@ -225,20 +238,20 @@ function ZBReturnContent() {
                         {view.status === 'success' && (
                             <>
                                 <Button fullWidth onClick={() => router.push('/dashboard')}>
-                                    Go to Dashboard
+                                    View my orders
                                 </Button>
                                 <Button fullWidth variant="secondary" onClick={() => router.push('/shop')}>
-                                    Continue Shopping
+                                    Order something else
                                 </Button>
                             </>
                         )}
                         {view.status === 'failed' && (
                             <>
                                 <Button fullWidth onClick={() => router.push('/checkout')}>
-                                    Try Again
+                                    Try again (your cart is saved)
                                 </Button>
-                                <Button fullWidth variant="secondary" onClick={() => router.push('/dashboard')}>
-                                    Go to Dashboard
+                                <Button fullWidth variant="secondary" href={whatsappLink(`Hi, I had a problem paying for my order${orderRef ? ` (ref ${orderRef})` : ''}.`)}>
+                                    Get help on WhatsApp
                                 </Button>
                             </>
                         )}

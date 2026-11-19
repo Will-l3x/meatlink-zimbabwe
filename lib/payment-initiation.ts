@@ -68,7 +68,7 @@ export async function initiatePayment(input: InitiatePaymentInput): Promise<Init
     }
 
     const roundedAmount = Math.round(amount * 100) / 100;
-    const orderRef = `ML-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const orderRef = `HM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
     const payment = await db.payment.create({
         data: {
@@ -98,7 +98,7 @@ export async function initiatePayment(input: InitiatePaymentInput): Promise<Init
         itemDescription: description,
         firstName: input.firstName || 'Hexad',
         lastName: input.lastName || 'Customer',
-        email: input.email || 'support@meatlink.co.zw',
+        email: input.email || 'support@hexadmarket.com',
         mobilePhoneNumber: input.mobilePhoneNumber || '0770000000',
     });
 

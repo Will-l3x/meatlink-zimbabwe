@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
+import { readNextPath, withNext } from '@/lib/next-path';
 
 export default function RegisterPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // Where to go afterwards (e.g. back to checkout); read after mount.
+    const [nextPath, setNextPath] = useState<string | null>(null);
+    useEffect(() => { setNextPath(readNextPath()); }, []);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -47,7 +51,7 @@ export default function RegisterPage() {
                     walletZAR: data.user.walletZAR || 0,
                     walletGBP: data.user.walletGBP || 0
                 }));
-                router.push('/dashboard');
+                router.push(nextPath || '/dashboard');
             } else {
                 setError(data.error || 'Registration failed. Please try again.');
             }
@@ -63,7 +67,7 @@ export default function RegisterPage() {
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1>Create Account</h1>
-                <p>Join the Diaspora community feeding home.</p>
+                <p>{nextPath === '/checkout' ? 'Create a free account to finish your order. It takes 30 seconds, and your cart is saved.' : 'Order for family in Harare from anywhere in the world.'}</p>
             </div>
 
             {error && (
@@ -129,7 +133,7 @@ export default function RegisterPage() {
             </form>
 
             <div className={styles.footer}>
-                Already have an account? <Link href="/login">Log In</Link>
+                Already have an account? <Link href={withNext('/login', nextPath)}>Log In</Link>
             </div>
         </div>
     );

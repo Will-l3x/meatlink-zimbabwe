@@ -1,4 +1,4 @@
-# MeatLink Zimbabwe (Hexad Market)
+# Hexad Market
 
 Next.js 16 + Prisma (MongoDB) storefront for ordering meat cuts online or via a WhatsApp bot, paid through ZB Smile & Pay, with an admin logistics board for weekly Harare deliveries.
 

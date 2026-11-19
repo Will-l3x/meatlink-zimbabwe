@@ -543,13 +543,13 @@ export default function AdminPage() {
                                                 <td>{sub.recipient.suburb}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.frequency === 'WEEKLY' ? styles.badgeWeekly : styles.badgeMonthly}`}>
-                                                        {sub.frequency.replace('_', '-')}
+                                                        {sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
                                                     </span>
                                                 </td>
                                                 <td style={{ fontSize: '0.8rem' }}>{formatShortDate(sub.nextDelivery)}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.isActive ? styles.badgeActive : styles.badgeInactive}`}>
-                                                        {sub.isActive ? 'Active' : 'Paused'}
+                                                        {sub.isActive ? 'Recurring' : 'Single order'}
                                                     </span>
                                                 </td>
                                             </tr>

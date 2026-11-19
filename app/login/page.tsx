@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from '../register/page.module.css';
 import Button from '@/components/ui/Button';
+import { readNextPath, withNext } from '@/lib/next-path';
 
 export default function LoginPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // Where to go afterwards (e.g. back to checkout); read after mount.
+    const [nextPath, setNextPath] = useState<string | null>(null);
+    useEffect(() => { setNextPath(readNextPath()); }, []);
     const [formData, setFormData] = useState({ email: '', password: '' });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +41,7 @@ export default function LoginPage() {
                     walletZAR: data.user.walletZAR || 0,
                     walletGBP: data.user.walletGBP || 0
                 }));
-                router.push(data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
+                router.push(nextPath || (data.user.role === 'ADMIN' ? '/admin' : '/dashboard'));
             } else {
                 setError(data.error || 'Invalid email or password.');
             }
@@ -53,7 +57,7 @@ export default function LoginPage() {
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1>Welcome Back</h1>
-                <p>Log in to manage your family&apos;s meat packs.</p>
+                <p>{nextPath === '/checkout' ? 'Log in to finish your order. Your cart and delivery details are saved.' : 'Log in to manage your family\'s orders.'}</p>
             </div>
 
             {error && (
@@ -92,7 +96,7 @@ export default function LoginPage() {
             </form>
 
             <div className={styles.footer}>
-                Don&apos;t have an account? <Link href="/register">Sign Up</Link>
+                Don&apos;t have an account? <Link href={withNext('/register', nextPath)}>Sign Up</Link>
             </div>
         </div>
     );

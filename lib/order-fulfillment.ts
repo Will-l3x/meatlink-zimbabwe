@@ -114,6 +114,9 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
             hamperId: hamper.id,
             frequency: normalizeFrequency(meta.frequency),
             nextDelivery: scheduledDate,
+            // Each payment covers exactly one delivery, so this is a one-off order:
+            // inactive subscriptions are skipped by the admin "Generate Next Batch".
+            isActive: false,
         },
     });
 

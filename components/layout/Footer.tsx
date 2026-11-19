@@ -28,7 +28,7 @@ export default function Footer() {
                     <div className={styles.column}>
                         <h4>Quick Links</h4>
                         <Link href="/shop">Shop Premium Cuts</Link>
-                        <Link href="/dashboard">My Dashboard</Link>
+                        <Link href="/dashboard">My Orders</Link>
                         <Link href="/register">Create Account</Link>
                     </div>
 

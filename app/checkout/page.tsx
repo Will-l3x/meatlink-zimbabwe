@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Button from '@/components/ui/Button';
+import Link from 'next/link';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
 import { SUBURBS } from '@/lib/delivery';
 
@@ -25,6 +26,13 @@ interface ContactInfo {
 
 type Step = 1 | 2 | 3;
 
+/** Delivery details typed at checkout, kept until the order is paid. */
+const CHECKOUT_DRAFT_KEY = 'hexad_checkout_draft';
+
+function phoneDigits(value: string): number {
+    return value.replace(/\D/g, '').length;
+}
+
 
 function CheckoutContent() {
     const router = useRouter();
@@ -41,22 +49,33 @@ function CheckoutContent() {
     // Saved contacts
     const [savedContacts, setSavedContacts] = useState<ContactInfo[]>([]);
 
-    useEffect(() => {
-        const storedUser = readStoredJson<{ id?: string } | null>('hexad_user', null);
-        setCartItems(readStoredJson<CartItem[]>('hexad_cart', []));
-        if (storedUser?.id) {
-            setSavedContacts(readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []));
-        }
-        setHydrated(true);
-    }, []);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [payError, setPayError] = useState('');
 
     const [formData, setFormData] = useState({
         recipientName: '',
         recipientWhatsApp: '',
         recipientAddress: '',
         recipientSuburb: '',
-        frequency: 'WEEKLY'
     });
+
+    useEffect(() => {
+        const storedUser = readStoredJson<{ id?: string } | null>('hexad_user', null);
+        setCartItems(readStoredJson<CartItem[]>('hexad_cart', []));
+        setIsLoggedIn(!!storedUser?.id);
+        if (storedUser?.id) {
+            setSavedContacts(readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []));
+        }
+        // Restore what was typed before a detour to log in / sign up.
+        const draft = readStoredJson<Partial<typeof formData> | null>(CHECKOUT_DRAFT_KEY, null);
+        if (draft) setFormData((prev) => ({ ...prev, ...draft }));
+        setHydrated(true);
+    }, []);
+
+    // Keep the delivery details as they are typed so nothing is lost.
+    useEffect(() => {
+        if (hydrated) writeStoredJson(CHECKOUT_DRAFT_KEY, formData);
+    }, [hydrated, formData]);
 
     const [saveContact, setSaveContact] = useState(false);
     const [contactNickname, setContactNickname] = useState('');
@@ -123,33 +142,46 @@ function CheckoutContent() {
         const errors: Record<string, string> = {};
         if (!formData.recipientName.trim()) errors.name = 'Recipient name is required';
         if (!formData.recipientWhatsApp.trim()) errors.whatsapp = 'WhatsApp number is required';
+        else if (phoneDigits(formData.recipientWhatsApp) < 9 || phoneDigits(formData.recipientWhatsApp) > 15) {
+            errors.whatsapp = 'Enter a full number, e.g. 0771 234 567 or +263 771 234 567';
+        }
         if (!formData.recipientAddress.trim()) errors.address = 'Delivery address is required';
         if (!formData.recipientSuburb) errors.suburb = 'Please select a suburb';
         if (cartItems.length === 0) errors.cart = 'Your cart is empty';
         setFormErrors(errors);
+        // On phones the button sits below the form, so bring the first problem into view.
+        const firstField = (['name', 'whatsapp', 'address', 'suburb'] as const).find((k) => errors[k]);
+        if (firstField) {
+            const id = { name: 'recipientName', whatsapp: 'recipientWhatsApp', address: 'recipientAddress', suburb: 'recipientSuburb' }[firstField];
+            const el = document.getElementById(id);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el?.focus({ preventScroll: true });
+        }
         return Object.keys(errors).length === 0;
     };
 
     const advanceToReview = () => {
+        if (!validateStep1()) return;
         const storedUser = window.localStorage.getItem('hexad_user');
         if (!storedUser) {
-            router.push('/login');
+            // Details are already saved as a draft; come straight back after signing up.
+            router.push('/register?next=/checkout');
             return;
         }
-        if (validateStep1()) {
-            const user = JSON.parse(storedUser);
-            persistContactIfNeeded(user.id);
-            setStep(2);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        const user = JSON.parse(storedUser);
+        persistContactIfNeeded(user.id);
+        setPayError('');
+        setStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // ── ZB Payment ────────────────────────────────────────
     const handlePayment = async () => {
         const storedUser = window.localStorage.getItem('hexad_user');
-        if (!storedUser) { router.push('/login'); return; }
+        if (!storedUser) { router.push('/login?next=/checkout'); return; }
         const user = JSON.parse(storedUser);
 
+        setPayError('');
         setLoading(true);
         setStep(3);
         try {
@@ -164,7 +196,7 @@ function CheckoutContent() {
                     description: cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240),
                     firstName: (user.name || 'Hexad').split(' ')[0],
                     lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
-                    email: user.email || 'support@meatlink.co.zw',
+                    email: user.email || 'support@hexadmarket.com',
                     mobilePhoneNumber: formData.recipientWhatsApp.replace(/\D/g, '').slice(-10) || '0770000000',
                     metadata: {
                         cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })),
@@ -173,14 +205,13 @@ function CheckoutContent() {
                         recipientAddress: formData.recipientAddress,
                         recipientSuburb: formData.recipientSuburb,
                         senderName: user.name,
-                        frequency: formData.frequency,
                         source: 'website_checkout',
                     },
                 }),
             });
             if (zbRes.status === 401) {
                 window.localStorage.removeItem('hexad_user');
-                router.push('/login');
+                router.push('/login?next=/checkout');
                 return;
             }
             const zbData = await zbRes.json();
@@ -196,12 +227,12 @@ function CheckoutContent() {
                 });
                 window.location.href = zbData.checkoutUrl;
             } else {
-                alert(zbData.error || 'Payment initiation failed. Please try again.');
+                setPayError(zbData.error || 'We couldn\'t start the payment. Please try again.');
                 setStep(2);
             }
         } catch (err) {
             console.error(err);
-            alert('Could not connect to ZB Smile & Pay. Please try again.');
+            setPayError('We couldn\'t reach the payment service. Check your connection and try again.');
             setStep(2);
         } finally {
             setLoading(false);
@@ -265,6 +296,17 @@ function CheckoutContent() {
             {step === 1 && (
                 <div className={styles.stepContent}>
                     <div className={styles.formSide}>
+                        {!isLoggedIn && (
+                            <div className={styles.guestNotice}>
+                                <p>
+                                    <strong>New here?</strong> Fill in the delivery details below. You&apos;ll create a free
+                                    account before paying, and everything you type is saved.
+                                </p>
+                                <p className={styles.guestNoticeLogin}>
+                                    Already have an account? <Link href="/login?next=/checkout">Log in</Link>
+                                </p>
+                            </div>
+                        )}
 
                         {/* Cart Summary (editable) */}
                         <div className={styles.section}>
@@ -323,8 +365,11 @@ function CheckoutContent() {
 
                             <div className={styles.formGrid}>
                                 <div className={styles.formGroup}>
-                                    <label>Recipient Name *</label>
+                                    <label htmlFor="recipientName">Who is receiving it? *</label>
                                     <input
+                                        id="recipientName"
+                                        autoComplete="off"
+                                        aria-invalid={!!formErrors.name}
                                         value={formData.recipientName}
                                         onChange={e => { setFormData({ ...formData, recipientName: e.target.value }); setSelectedContactId(''); }}
                                         placeholder="e.g. Gogo Mukoko"
@@ -332,27 +377,38 @@ function CheckoutContent() {
                                     {formErrors.name && <p className={styles.fieldError}>{formErrors.name}</p>}
                                 </div>
                                 <div className={styles.formGroup}>
-                                    <label>WhatsApp Number *</label>
+                                    <label htmlFor="recipientWhatsApp">Their WhatsApp number *</label>
                                     <input
+                                        id="recipientWhatsApp"
+                                        inputMode="tel"
+                                        autoComplete="off"
+                                        aria-invalid={!!formErrors.whatsapp}
                                         value={formData.recipientWhatsApp}
                                         onChange={e => { setFormData({ ...formData, recipientWhatsApp: e.target.value }); setSelectedContactId(''); }}
-                                        placeholder="+263 7XX XXX XXX"
+                                        placeholder="e.g. 0771 234 567"
                                         type="tel"
                                     />
-                                    {formErrors.whatsapp && <p className={styles.fieldError}>{formErrors.whatsapp}</p>}
+                                    {formErrors.whatsapp
+                                        ? <p className={styles.fieldError}>{formErrors.whatsapp}</p>
+                                        : <p className={styles.fieldHint}>We&apos;ll message them when it&apos;s on the way.</p>}
                                 </div>
                                 <div className={`${styles.formGroup} ${styles.formGroupFull}`}>
-                                    <label>Delivery Address *</label>
+                                    <label htmlFor="recipientAddress">Street address in Harare *</label>
                                     <input
+                                        id="recipientAddress"
+                                        autoComplete="off"
+                                        aria-invalid={!!formErrors.address}
                                         value={formData.recipientAddress}
                                         onChange={e => { setFormData({ ...formData, recipientAddress: e.target.value }); setSelectedContactId(''); }}
-                                        placeholder="123 Main Street"
+                                        placeholder="e.g. 12 Main Street"
                                     />
                                     {formErrors.address && <p className={styles.fieldError}>{formErrors.address}</p>}
                                 </div>
                                 <div className={styles.formGroup}>
-                                    <label>Suburb *</label>
+                                    <label htmlFor="recipientSuburb">Suburb *</label>
                                     <select
+                                        id="recipientSuburb"
+                                        aria-invalid={!!formErrors.suburb}
                                         value={formData.recipientSuburb}
                                         onChange={e => { setFormData({ ...formData, recipientSuburb: e.target.value }); setSelectedContactId(''); }}
                                     >
@@ -360,17 +416,6 @@ function CheckoutContent() {
                                         {SUBURBS.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                     {formErrors.suburb && <p className={styles.fieldError}>{formErrors.suburb}</p>}
-                                </div>
-                                <div className={styles.formGroup}>
-                                    <label>Delivery Frequency</label>
-                                    <select
-                                        value={formData.frequency}
-                                        onChange={e => setFormData({ ...formData, frequency: e.target.value })}
-                                    >
-                                        <option value="WEEKLY">Every Week</option>
-                                        <option value="BI_WEEKLY">Every 2 Weeks</option>
-                                        <option value="MONTHLY">Every Month</option>
-                                    </select>
                                 </div>
                             </div>
 
@@ -424,8 +469,9 @@ function CheckoutContent() {
                                 <span>Total ({totalKg}kg)</span>
                                 <span>{sym}{cartTotal.toFixed(2)}</span>
                             </div>
-                            <Button fullWidth onClick={advanceToReview} style={{ marginTop: '1.5rem' }}>
-                                Review Order →
+                            <p className={styles.deliveryNote}>Delivered {nextDeliveryDay()}</p>
+                            <Button fullWidth onClick={advanceToReview} style={{ marginTop: '1rem' }}>
+                                {isLoggedIn ? 'Review order →' : 'Continue →'}
                             </Button>
                         </div>
                     </aside>
@@ -458,14 +504,8 @@ function CheckoutContent() {
                                     <span className={styles.reviewValue}>{formData.recipientAddress}, {formData.recipientSuburb}, Harare</span>
                                 </div>
                                 <div className={styles.reviewField}>
-                                    <span className={styles.reviewLabel}>Frequency</span>
-                                    <span className={styles.reviewValue}>
-                                        {formData.frequency === 'WEEKLY' ? 'Every Week' : formData.frequency === 'BI_WEEKLY' ? 'Every 2 Weeks' : 'Every Month'}
-                                    </span>
-                                </div>
-                                <div className={styles.reviewField}>
-                                    <span className={styles.reviewLabel}>First Delivery</span>
-                                    <span className={styles.reviewValue} style={{ color: 'var(--primary)' }}>{nextDeliveryDay()}</span>
+                                    <span className={styles.reviewLabel}>Delivery</span>
+                                    <span className={styles.reviewValue} style={{ color: 'var(--primary)' }}>{nextDeliveryDay()} · free</span>
                                 </div>
                             </div>
                         </div>
@@ -532,6 +572,9 @@ function CheckoutContent() {
                                 <span>Total ({totalKg}kg)</span>
                                 <span>{sym}{cartTotal.toFixed(2)}</span>
                             </div>
+                            {payError && (
+                                <p role="alert" className={styles.payError}>{payError}</p>
+                            )}
                             <Button fullWidth onClick={handlePayment} disabled={loading} style={{ marginTop: '1.5rem' }}>
                                 {loading ? 'Connecting to ZB…' : <>Confirm &amp; Pay {sym}{cartTotal.toFixed(2)} →</>}
                             </Button>

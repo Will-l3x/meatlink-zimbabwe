@@ -205,7 +205,7 @@ function ShopPageContent() {
             }
             return [...prev, { id, title, kg, pricing }];
         });
-        setAddedMessage(`✅ ${kg}kg ${title} added!`);
+        setAddedMessage(`Added ${kg} kg ${title} to your cart`);
         setTimeout(() => setAddedMessage(''), 2000);
     };
 
@@ -238,13 +238,13 @@ function ShopPageContent() {
             <div className={styles.shopHero}>
                 <p className={styles.shopEyebrow}>Online counter</p>
                 <h1>Premium cuts</h1>
-                <p>Hand-selected meat, sold by the kilogram — delivered weekly across Harare.</p>
+                <p>Pick your cuts, choose the weight, and we deliver free across Harare every Wednesday.</p>
             </div>
 
             <div className={styles.container}>
 
             {addedMessage && (
-                <div className={styles.addedToast}>{addedMessage}</div>
+                <div className={styles.addedToast} role="status">{addedMessage}</div>
             )}
 
             <div className={styles.filterBar}>
@@ -293,10 +293,12 @@ function ShopPageContent() {
 
             {/* Floating View Cart Button */}
             {cart.length > 0 && (
-                <button className={styles.viewCartPill} onClick={() => setDrawerOpen(true)}>
-                    🛒
-                    <span className={styles.pillText}>View Cart</span>
+                <button type="button" className={styles.viewCartPill} onClick={() => setDrawerOpen(true)}>
                     <span className={styles.pillBadge}>{cart.length}</span>
+                    <span className={styles.pillText}>
+                        View cart · <strong>${getCartTotal().toFixed(2)}</strong>
+                    </span>
+                    <span aria-hidden="true">→</span>
                 </button>
             )}
 
@@ -309,7 +311,7 @@ function ShopPageContent() {
             <div className={`${styles.cartDrawer} ${drawerOpen ? styles.cartDrawerOpen : ''}`}>
                 <div className={styles.drawerHeader}>
                     <h2 className={styles.drawerTitle}>Your Cart</h2>
-                    <button className={styles.drawerClose} onClick={() => setDrawerOpen(false)}>✕</button>
+                    <button type="button" className={styles.drawerClose} onClick={() => setDrawerOpen(false)} aria-label="Close cart">✕</button>
                 </div>
 
                 <div className={styles.drawerItems}>
@@ -340,6 +342,7 @@ function ShopPageContent() {
                                     <button
                                         className={styles.removeItemBtn}
                                         onClick={() => removeFromCart(item.id)}
+                                        aria-label={`Remove ${item.title}`}
                                     >🗑</button>
                                 </div>
                             </div>
@@ -354,7 +357,7 @@ function ShopPageContent() {
                             <span className={styles.drawerTotalPrice}>${getCartTotal().toFixed(2)}</span>
                         </div>
                         <button className={styles.drawerCheckoutBtn} onClick={goToCheckout}>
-                            Proceed to Checkout →
+                            Checkout →
                         </button>
                         <button className={styles.drawerContinueBtn} onClick={() => setDrawerOpen(false)}>
                             Continue Shopping
