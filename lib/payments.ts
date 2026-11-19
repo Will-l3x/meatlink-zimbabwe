@@ -13,7 +13,8 @@ import * as https from 'https';
 const ZB_CONFIG = {
     apiKey: process.env.ZB_API_KEY || '',
     apiSecret: process.env.ZB_API_SECRET || '',
-    apiUrl: process.env.ZB_API_URL || 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway',
+    // Trailing slashes are stripped so endpoint paths never end up with '//'.
+    apiUrl: (process.env.ZB_API_URL || 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway').replace(/\/+$/, ''),
     isSandbox: process.env.ZB_SANDBOX !== 'false',
 };
 
@@ -155,7 +156,14 @@ export const paymentService = {
                     };
                 }
 
-                lastError = data.message || data.responseMessage || `ZB API error HTTP ${responseData.status}: ${responseData.raw}`;
+                if (!responseData.data) {
+                    // Non-JSON reply (e.g. an HTML 404 page) usually means ZB_API_URL points at the wrong host/path.
+                    console.error(`[ZB API] Non-JSON response HTTP ${responseData.status} from ${url.origin}${url.pathname}: ${responseData.raw.slice(0, 300)}`);
+                }
+                lastError = data.message || data.responseMessage ||
+                    (responseData.status === 404
+                        ? 'Payment gateway is misconfigured. Please contact support.'
+                        : `Payment gateway error (HTTP ${responseData.status}). Please try again.`);
 
                 if ((responseData.status >= 500 || data.responseMessage === 'Suspected duplicate orderId') && attempt < MAX_RETRIES) {
                     console.log(`[ZB API] Transient error, retrying in 1s...`);

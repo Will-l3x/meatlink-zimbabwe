@@ -93,3 +93,12 @@
     font-size: 0.88rem;
     margin-bottom: 1rem;
 }
+
+.inputGroup input[aria-invalid="true"] {
+    border-color: var(--error);
+}
+
+.fieldHint {
+    font-size: 0.82rem;
+    color: var(--error);
+}

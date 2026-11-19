@@ -1,7 +1,6 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
-import { SUBURBS } from '@/lib/delivery';
 
 /**
  * Hexad Market WhatsApp Chatbot
@@ -53,10 +52,6 @@ function parseSessionData(raw: string | null | undefined): SessionData {
         console.warn('[WhatsApp Bot] Invalid session.data JSON, resetting cart:', e);
     }
     return { cart: [] };
-}
-
-function suburbSlug(name: string) {
-    return name.toLowerCase().replace(/\s+/g, '-');
 }
 
 function cutTagLabel(tag: string) {
@@ -260,48 +255,20 @@ export const chatbotService = {
 
                 case 'RECIPIENT_WHATSAPP':
                     data.recipientWhatsApp = text.trim();
-                    await this.send(from, `📍 What is the delivery address?\n(e.g. 123 Main Street)`);
+                    await this.send(from, `📍 What is the full delivery address, including the suburb?\n(e.g. 12 Main Street, Avondale)`);
                     await this.updateSession(from, 'RECIPIENT_ADDRESS', data);
                     break;
 
                 case 'RECIPIENT_ADDRESS':
                     data.recipientAddress = text.trim();
-                    await this.sendSuburbPicker(from);
-                    await this.updateSession(from, 'RECIPIENT_SUBURB', data);
+                    await this.sendConfirmActions(from, data);
+                    await this.updateSession(from, 'CONFIRMING', data);
                     break;
 
+                // Sessions saved before the suburb step was removed may still be
+                // parked here; move them straight on to confirmation.
                 case 'RECIPIENT_SUBURB':
-                    if (payload === 'suburb_page_2') {
-                        await this.sendSuburbPicker(from, 2);
-                        return;
-                    }
-                    let suburb = '';
-                    if (payload === 'suburb_other') {
-                        await this.send(from, 'Please type your suburb name:');
-                        await this.updateSession(from, 'RECIPIENT_SUBURB_CUSTOM', data);
-                        return;
-                    }
-                    if (payload?.startsWith('suburb_')) {
-                        const slug = payload.slice(7);
-                        if (slug !== 'page_2') {
-                            suburb = SUBURBS.find((s) => suburbSlug(s) === slug) || '';
-                        }
-                    }
-                    if (!suburb) {
-                        const subIdx = parseInt(clean, 10) - 1;
-                        if (!isNaN(subIdx) && subIdx >= 0 && subIdx < SUBURBS.length) {
-                            suburb = SUBURBS[subIdx];
-                        } else if (!isNaN(subIdx) && subIdx === SUBURBS.length) {
-                            await this.send(from, 'Please type your suburb name:');
-                            await this.updateSession(from, 'RECIPIENT_SUBURB_CUSTOM', data);
-                            return;
-                        } else {
-                            const matched = SUBURBS.find((s) => s.toLowerCase().includes(clean));
-                            suburb = matched || text.trim();
-                        }
-                    }
-                    data.recipientSuburb = suburb;
-
+                case 'RECIPIENT_SUBURB_CUSTOM':
                     await this.sendConfirmActions(from, data);
                     await this.updateSession(from, 'CONFIRMING', data);
                     break;
@@ -309,7 +276,7 @@ export const chatbotService = {
                 case 'CONFIRMING':
                     if (clean === 'pay' || clean === 'confirm' || payload === 'confirm_pay') {
                         await this.send(from, "💳 Generating your secure payment link...");
-                        await this.handlePayment(from, data);
+                        await this.handlePayment(from, data, contactName);
                     } else if (clean === 'edit' || payload === 'confirm_edit') {
                         await this.send(from, "Let's start the delivery details again.\n\nPlease type the *recipient's full name*:");
                         await this.updateSession(from, 'RECIPIENT_NAME', data);
@@ -323,16 +290,11 @@ export const chatbotService = {
                     }
                     break;
 
-                case 'RECIPIENT_SUBURB_CUSTOM':
-                    data.recipientSuburb = text.trim();
-                    await this.sendConfirmActions(from, data);
-                    await this.updateSession(from, 'CONFIRMING', data);
-                    break;
 
                 case 'PAYMENT_RETRY':
                     if (clean === 'retry' || clean === 'pay' || payload === 'payment_retry') {
                         await this.send(from, "💳 Retrying payment link generation...");
-                        await this.handlePayment(from, data);
+                        await this.handlePayment(from, data, contactName);
                     } else if (clean === 'cancel' || payload === 'payment_cancel') {
                         data.cart = [];
                         await this.send(from, "❌ Order cancelled. Let me show you the menu again.");
@@ -513,29 +475,6 @@ export const chatbotService = {
         ]);
     },
 
-    async sendSuburbPicker(to: string, page: 1 | 2 = 1) {
-        if (page === 2) {
-            const suburbs = SUBURBS.slice(9);
-            const options = [
-                ...suburbs.map((s) => ({
-                    id: `suburb_${suburbSlug(s)}`,
-                    title: s.slice(0, 20),
-                })),
-                { id: 'suburb_other', title: 'Other suburb' },
-            ];
-            await this.sendReplyButtonGroups(to, '📍 *More suburbs* — tap your area:', options);
-            return;
-        }
-
-        const firstPage = SUBURBS.slice(0, 9);
-        const options = firstPage.map((s) => ({
-            id: `suburb_${suburbSlug(s)}`,
-            title: s.slice(0, 20),
-        }));
-        await this.sendReplyButtonGroups(to, '📍 *Delivery suburb* — tap your area:', options);
-        await this.sendButtons(to, 'Not listed above?', [{ id: 'suburb_page_2', title: 'More suburbs' }]);
-    },
-
     async sendConfirmActions(to: string, data: SessionData) {
         await this.sendOrderSummary(to, data);
         await this.sendButtons(to, 'Confirm your order?', [
@@ -577,7 +516,7 @@ export const chatbotService = {
             `*📦 Delivering to:*\n` +
             `${data.recipientName}\n` +
             `📱 ${data.recipientWhatsApp}\n` +
-            `📍 ${data.recipientAddress}, ${data.recipientSuburb}\n\n` +
+            `📍 ${data.recipientAddress}${data.recipientSuburb ? `, ${data.recipientSuburb}` : ''}\n\n` +
             `Reply *PAY* to get your payment link\n` +
             `Reply *EDIT* to change details\n` +
             `Reply *CANCEL* to start over`;
@@ -585,7 +524,7 @@ export const chatbotService = {
         await this.send(to, summary);
     },
 
-    async handlePayment(from: string, data: SessionData) {
+    async handlePayment(from: string, data: SessionData, contactName?: string) {
         const db = getPrisma();
         if (!db) {
             await this.send(from, 'The WhatsApp payment service is temporarily unavailable. Please try again later.');
@@ -600,7 +539,8 @@ export const chatbotService = {
         let user = await db.user.findFirst({ where: { whatsappId: from } });
         if (!user) {
             user = await db.user.create({
-                data: { name: data.recipientName || 'WhatsApp Customer', whatsappId: from, role: 'SENDER' }
+                // The buyer is the person chatting, not the recipient they typed in.
+                data: { name: contactName?.trim() || 'WhatsApp Customer', whatsappId: from, role: 'SENDER' }
             });
         }
 

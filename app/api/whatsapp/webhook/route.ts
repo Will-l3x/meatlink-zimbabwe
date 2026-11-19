@@ -74,6 +74,14 @@ export async function POST(request: Request) {
         const value = changes?.value;
 
         if (!value?.messages?.[0]) {
+            // Meta reports undelivered messages here (e.g. error 131047 when the
+            // number hasn't messaged us in the last 24 hours), so log failures.
+            for (const st of value?.statuses || []) {
+                if (st?.status === 'failed') {
+                    const err = st.errors?.[0];
+                    console.error(`[Webhook] ❌ Message to ${st.recipient_id} failed: ${err?.code} ${err?.title || ''} ${err?.error_data?.details || ''}`.trim());
+                }
+            }
             console.log('[Webhook] Non-message event (status update etc.)');
             return NextResponse.json({ success: true });
         }

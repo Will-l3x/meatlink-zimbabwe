@@ -13,19 +13,25 @@ export default function RegisterPage() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: ''
+        password: '',
+        confirmPassword: ''
     });
+    const passwordsMismatch = formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match.');
+            return;
+        }
         setLoading(true);
 
         try {
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password })
             });
 
             const data = await res.json();
@@ -99,8 +105,25 @@ export default function RegisterPage() {
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     />
                 </div>
+                <div className={styles.inputGroup}>
+                    <label htmlFor="confirmPassword">Confirm Password</label>
+                    <input
+                        id="confirmPassword"
+                        type="password"
+                        required
+                        autoComplete="new-password"
+                        placeholder="Type your password again"
+                        aria-invalid={passwordsMismatch}
+                        aria-describedby={passwordsMismatch ? 'confirmPasswordHint' : undefined}
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    />
+                    {passwordsMismatch && (
+                        <span id="confirmPasswordHint" className={styles.fieldHint}>Passwords don&apos;t match yet.</span>
+                    )}
+                </div>
 
-                <Button fullWidth variant="primary" type="submit" disabled={loading}>
+                <Button fullWidth variant="primary" type="submit" disabled={loading || passwordsMismatch}>
                     {loading ? 'Creating Account...' : 'Sign Up'}
                 </Button>
             </form>

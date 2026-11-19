@@ -25,6 +25,19 @@ interface GraphApiResponse {
     error?: { message?: string };
 }
 
+/**
+ * Turn a phone number as people type it into the international digits the
+ * Cloud API expects. Local Zimbabwe numbers (0771234567 / 771234567) get the
+ * 263 country code; "00" international prefixes are dropped.
+ */
+export function toWhatsAppNumber(raw: string): string {
+    let digits = (raw || '').replace(/\D/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    if (/^0[1-9]\d{8}$/.test(digits)) return `263${digits.slice(1)}`;
+    if (/^7\d{8}$/.test(digits)) return `263${digits}`;
+    return digits;
+}
+
 export const whatsappService = {
     /**
      * Send a WhatsApp message using the Meta Cloud API
@@ -36,7 +49,7 @@ export const whatsappService = {
         const API_VERSION = 'v20.0';
 
         const { to, text, interactive } = options;
-        const cleanNumber = to.replace(/\D/g, '');
+        const cleanNumber = toWhatsAppNumber(to);
 
         const payload: WhatsAppPayload = {
             messaging_product: "whatsapp",
