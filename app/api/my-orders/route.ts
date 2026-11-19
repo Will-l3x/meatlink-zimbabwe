@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/session';
 import { PLAN_ID, renewalToken } from '@/lib/plans';
-import { PLAN_WEEKS } from '@/lib/delivery';
+import { planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 type PlanFields = {
     id: string;
+    frequency: string;
     isActive: boolean;
     deliveriesPerCycle: number | null;
     deliveriesLeft: number | null;
@@ -28,7 +29,8 @@ function planSummary(sub: PlanFields, upcoming: number) {
     const token = renewalToken(sub.id);
     // The scheduled-but-not-yet-delivered drop counts as still to come.
     return {
-        weeks: sub.deliveriesPerCycle ?? PLAN_WEEKS,
+        frequency: planFrequency(sub.frequency),
+        deliveriesPerCycle: sub.deliveriesPerCycle ?? PLAN_FREQUENCIES[planFrequency(sub.frequency)].deliveries,
         deliveriesLeft: Math.max(0, sub.deliveriesLeft ?? 0) + upcoming,
         autoRenew: sub.autoRenew !== false,
         amount: sub.cycleAmount ?? 0,
@@ -91,7 +93,7 @@ export async function GET(request: Request) {
 
 /**
  * PATCH /api/my-orders { id, autoRenew } — turn renewal links on or off for
- * one of the customer's weekly plans.
+ * one of the customer's plans.
  */
 export async function PATCH(request: Request) {
     const guard = requireSession(request);

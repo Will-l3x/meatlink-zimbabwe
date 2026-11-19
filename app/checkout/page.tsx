@@ -6,7 +6,8 @@ import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
-import { SUBURBS, PLAN_WEEKS } from '@/lib/delivery';
+import { SUBURBS, PLAN_FREQUENCIES, planDeliveriesLabel, type PlanFrequency } from '@/lib/delivery';
+import { CATALOG } from '@/lib/catalog';
 
 interface CartItem {
     id: string;
@@ -28,11 +29,19 @@ type Step = 1 | 2 | 3;
 
 /** Delivery details typed at checkout, kept until the order is paid. */
 const CHECKOUT_DRAFT_KEY = 'hexad_checkout_draft';
-/** Chosen plan (one delivery vs weekly, paid monthly), remembered between visits. */
+/** Chosen plan (one delivery, or a frequency paid per 4 weeks), remembered between visits. */
 const CHECKOUT_PLAN_KEY = 'hexad_checkout_plan';
 
-type PlanChoice = 'once' | 'weekly';
+type PlanChoice = 'once' | PlanFrequency;
 interface PlanPrefs { plan: PlanChoice; autoRenew: boolean; payerWhatsApp: string }
+
+const PLAN_CHOICES = Object.keys(PLAN_FREQUENCIES) as PlanFrequency[];
+
+/** Saved prefs may predate the frequency choice ('weekly'). */
+function normalizePlanChoice(value: unknown): PlanChoice {
+    if (value === 'weekly') return 'WEEKLY';
+    return PLAN_CHOICES.includes(value as PlanFrequency) ? (value as PlanFrequency) : 'once';
+}
 
 function phoneDigits(value: string): number {
     return value.replace(/\D/g, '').length;
@@ -57,7 +66,9 @@ function CheckoutContent() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [payError, setPayError] = useState('');
     const [planPrefs, setPlanPrefs] = useState<PlanPrefs>({ plan: 'once', autoRenew: true, payerWhatsApp: '' });
-    const isPlan = planPrefs.plan === 'weekly';
+    const isPlan = planPrefs.plan !== 'once';
+    const planFreq: PlanFrequency = planPrefs.plan === 'once' ? 'WEEKLY' : planPrefs.plan;
+    const planInfo = PLAN_FREQUENCIES[planFreq];
 
     const [formData, setFormData] = useState({
         recipientName: '',
@@ -68,7 +79,14 @@ function CheckoutContent() {
 
     useEffect(() => {
         const storedUser = readStoredJson<{ id?: string } | null>('hexad_user', null);
-        setCartItems(readStoredJson<CartItem[]>('hexad_cart', []));
+        // Refresh prices from the catalogue (a cart saved days ago may hold old
+        // prices) and drop anything no longer sold. The server prices it again.
+        const storedCart = readStoredJson<CartItem[]>('hexad_cart', []);
+        const freshCart = storedCart
+            .filter((item) => CATALOG[item.id])
+            .map((item) => ({ ...item, title: CATALOG[item.id].title, pricing: CATALOG[item.id].pricing }));
+        if (JSON.stringify(freshCart) !== JSON.stringify(storedCart)) writeStoredJson('hexad_cart', freshCart);
+        setCartItems(freshCart);
         setIsLoggedIn(!!storedUser?.id);
         if (storedUser?.id) {
             setSavedContacts(readStoredJson<ContactInfo[]>(`hexad_recipients_${storedUser.id}`, []));
@@ -77,7 +95,7 @@ function CheckoutContent() {
         const draft = readStoredJson<Partial<typeof formData> | null>(CHECKOUT_DRAFT_KEY, null);
         if (draft) setFormData((prev) => ({ ...prev, ...draft }));
         const savedPlan = readStoredJson<Partial<PlanPrefs> | null>(CHECKOUT_PLAN_KEY, null);
-        if (savedPlan) setPlanPrefs((prev) => ({ ...prev, ...savedPlan }));
+        if (savedPlan) setPlanPrefs((prev) => ({ ...prev, ...savedPlan, plan: normalizePlanChoice(savedPlan.plan) }));
         setHydrated(true);
     }, []);
 
@@ -103,8 +121,8 @@ function CheckoutContent() {
     };
     const cartTotal = cartItems.reduce((sum, item) => sum + getItemPrice(item), 0);
     const totalKg = cartItems.reduce((sum, item) => sum + item.kg, 0);
-    /** What is charged now: one delivery, or PLAN_WEEKS deliveries upfront. */
-    const dueToday = isPlan ? cartTotal * PLAN_WEEKS : cartTotal;
+    /** What is charged now: one delivery, or 4 weeks of deliveries upfront. */
+    const dueToday = isPlan ? cartTotal * planInfo.deliveries : cartTotal;
 
     // ── Cart editing (from checkout) ──────────────────────
     const updateItemKg = (id: string, kg: number) => {
@@ -212,7 +230,7 @@ function CheckoutContent() {
                     currency: currency.toUpperCase(),
                     userId: user.id,
                     purpose: 'ORDER',
-                    description: `${isPlan ? `Weekly plan, ${PLAN_WEEKS} deliveries: ` : ''}${cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ')}`.slice(0, 240),
+                    description: `${isPlan ? `Plan, ${planDeliveriesLabel(planFreq)}: ` : ''}${cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ')}`.slice(0, 240),
                     firstName: (user.name || 'Hexad').split(' ')[0],
                     lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
                     email: user.email || 'support@hexadmarket.com',
@@ -221,6 +239,7 @@ function CheckoutContent() {
                         cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })),
                         ...(isPlan ? {
                             plan: 'MONTHLY',
+                            planFrequency: planFreq,
                             autoRenew: planPrefs.autoRenew,
                             payerWhatsApp: planPrefs.autoRenew ? planPrefs.payerWhatsApp.trim() : '',
                         } : {}),
@@ -374,24 +393,30 @@ function CheckoutContent() {
                                     </span>
                                     <span className={styles.planOptionPrice}>{sym}{cartTotal.toFixed(2)}</span>
                                 </label>
-                                <label className={`${styles.planOption} ${isPlan ? styles.planOptionActive : ''}`}>
-                                    <input
-                                        type="radio"
-                                        name="plan"
-                                        checked={isPlan}
-                                        onChange={() => setPlanPrefs({ ...planPrefs, plan: 'weekly' })}
-                                    />
-                                    <span className={styles.planOptionBody}>
-                                        <span className={styles.planOptionTitle}>Every week, paid monthly</span>
-                                        <span className={styles.planOptionDesc}>
-                                            Pay once for {PLAN_WEEKS} weekly deliveries. The same order arrives every Wednesday.
-                                        </span>
-                                    </span>
-                                    <span className={styles.planOptionPrice}>
-                                        {sym}{(cartTotal * PLAN_WEEKS).toFixed(2)}
-                                        <small>{sym}{cartTotal.toFixed(2)} × {PLAN_WEEKS}</small>
-                                    </span>
-                                </label>
+                                {PLAN_CHOICES.map((freq) => {
+                                    const info = PLAN_FREQUENCIES[freq];
+                                    const active = planPrefs.plan === freq;
+                                    return (
+                                        <label key={freq} className={`${styles.planOption} ${active ? styles.planOptionActive : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="plan"
+                                                checked={active}
+                                                onChange={() => setPlanPrefs({ ...planPrefs, plan: freq })}
+                                            />
+                                            <span className={styles.planOptionBody}>
+                                                <span className={styles.planOptionTitle}>{info.label}</span>
+                                                <span className={styles.planOptionDesc}>
+                                                    The same order {info.cadence}. Paid every 4 weeks: {info.deliveries} deliver{info.deliveries === 1 ? 'y' : 'ies'} per payment.
+                                                </span>
+                                            </span>
+                                            <span className={styles.planOptionPrice}>
+                                                {sym}{(cartTotal * info.deliveries).toFixed(2)}
+                                                {info.deliveries > 1 && <small>{sym}{cartTotal.toFixed(2)} × {info.deliveries}</small>}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
                             </div>
 
                             {isPlan && (
@@ -403,7 +428,7 @@ function CheckoutContent() {
                                             onChange={e => setPlanPrefs({ ...planPrefs, autoRenew: e.target.checked })}
                                             className={styles.saveContactCheck}
                                         />
-                                        <span>Send me a payment link for the next month when these {PLAN_WEEKS} deliveries run out</span>
+                                        <span>Send me a payment link for the next 4 weeks before the paid deliveries run out</span>
                                     </label>
                                     {planPrefs.autoRenew && (
                                         <div className={styles.formGroup} style={{ marginTop: '0.75rem' }}>
@@ -562,8 +587,8 @@ function CheckoutContent() {
                             </div>
                             {isPlan && (
                                 <div className={styles.sidebarItem}>
-                                    <span>Weekly deliveries</span>
-                                    <span>× {PLAN_WEEKS}</span>
+                                    <span>{planInfo.label} deliveries (4 weeks)</span>
+                                    <span>× {planInfo.deliveries}</span>
                                 </div>
                             )}
                             <div className={styles.sidebarTotal}>
@@ -571,7 +596,7 @@ function CheckoutContent() {
                                 <span>{sym}{dueToday.toFixed(2)}</span>
                             </div>
                             <p className={styles.deliveryNote}>
-                                {isPlan ? `Every Wednesday for ${PLAN_WEEKS} weeks, from ${nextDeliveryDay()}` : `Delivered ${nextDeliveryDay()}`}
+                                {isPlan ? `${planInfo.cadence.replace(/^./, (c) => c.toUpperCase())}, from ${nextDeliveryDay()}` : `Delivered ${nextDeliveryDay()}`}
                             </p>
                             <Button fullWidth onClick={advanceToReview} style={{ marginTop: '1rem' }}>
                                 {isLoggedIn ? 'Review order →' : 'Continue →'}
@@ -610,8 +635,8 @@ function CheckoutContent() {
                                     <div className={styles.reviewField}>
                                         <span className={styles.reviewLabel}>Plan</span>
                                         <span className={styles.reviewValue}>
-                                            {PLAN_WEEKS} weekly deliveries, paid today.{' '}
-                                            {planPrefs.autoRenew ? 'We\'ll send a link to pay for the next month.' : 'Ends after the last delivery.'}
+                                            {planInfo.label}: {planDeliveriesLabel(planFreq)} for the next 4 weeks, paid today.{' '}
+                                            {planPrefs.autoRenew ? 'We\'ll send a link to pay for the next 4 weeks.' : 'Ends after the last delivery.'}
                                         </span>
                                     </div>
                                 )}
@@ -619,7 +644,7 @@ function CheckoutContent() {
                                     <span className={styles.reviewLabel}>Delivery</span>
                                     <span className={styles.reviewValue} style={{ color: 'var(--primary)' }}>
                                         {isPlan
-                                            ? `Every Wednesday for ${PLAN_WEEKS} weeks, from ${nextDeliveryDay()} · free`
+                                            ? `${planInfo.cadence.replace(/^./, (c) => c.toUpperCase())}, from ${nextDeliveryDay()} · free`
                                             : `${nextDeliveryDay()} · free`}
                                     </span>
                                 </div>
@@ -686,8 +711,8 @@ function CheckoutContent() {
                             </div>
                             {isPlan && (
                                 <div className={styles.sidebarItem}>
-                                    <span>Weekly deliveries</span>
-                                    <span>{sym}{cartTotal.toFixed(2)} × {PLAN_WEEKS}</span>
+                                    <span>{planInfo.label} deliveries (4 weeks)</span>
+                                    <span>{sym}{cartTotal.toFixed(2)} × {planInfo.deliveries}</span>
                                 </div>
                             )}
                             <div className={styles.sidebarTotal}>

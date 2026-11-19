@@ -3,14 +3,14 @@ import { getPrisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
 import { PLAN_ID, verifyRenewalToken } from '@/lib/plans';
-import { PLAN_WEEKS } from '@/lib/delivery';
+import { planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
 type CartLine = { title: string; kg: number };
 
 /**
- * Renewal links for prepaid weekly plans.
+ * Renewal links for prepaid plans.
  * Authorised by the signed token in the link (so it works straight from a
  * WhatsApp message, on any device) or by being the plan owner's session.
  */
@@ -57,7 +57,8 @@ export async function GET(request: Request) {
             recipientName: sub.recipient.name.split(' ')[0],
             suburb: sub.recipient.suburb,
             items: parseCart(sub.cart).map((l) => ({ title: l.title, kg: l.kg })),
-            weeks: sub.deliveriesPerCycle ?? PLAN_WEEKS,
+            frequency: planFrequency(sub.frequency),
+            deliveriesPerCycle: sub.deliveriesPerCycle ?? PLAN_FREQUENCIES[planFrequency(sub.frequency)].deliveries,
             amount: sub.cycleAmount ?? 0,
             currency: (sub.cycleCurrency || 'USD').toUpperCase(),
             deliveriesLeft: Math.max(0, sub.deliveriesLeft ?? 0),
@@ -83,7 +84,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'This plan has no price set. Please contact support.' }, { status: 400 });
     }
 
-    const weeks = sub.deliveriesPerCycle ?? PLAN_WEEKS;
+    const freq = planFrequency(sub.frequency);
+    const perCycle = sub.deliveriesPerCycle ?? PLAN_FREQUENCIES[freq].deliveries;
     const items = parseCart(sub.cart);
     const [firstName, ...rest] = (sub.sender.name || 'Hexad Customer').split(' ');
 
@@ -92,7 +94,7 @@ export async function POST(request: Request) {
         currency: sub.cycleCurrency || 'USD',
         userId: sub.senderId,
         purpose: 'ORDER',
-        description: `Weekly plan renewal: ${weeks} deliveries for ${sub.recipient.name}`,
+        description: `Plan renewal: ${planDeliveriesLabel(freq, perCycle)} for ${sub.recipient.name}`,
         baseUrl: resolveBaseUrl(request),
         retryPath: `/renew?sub=${sub.id}&t=${encodeURIComponent(body.t || '')}`,
         firstName,
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
             source: 'plan_renewal',
             renewalOf: sub.id,
             plan: PLAN_ID,
+            planFrequency: freq,
             cartItems: items,
             recipientName: sub.recipient.name,
             recipientWhatsApp: sub.recipient.whatsapp,

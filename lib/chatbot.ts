@@ -1,4 +1,5 @@
 import { getPrisma } from '@/lib/prisma';
+import { CATALOG, priceCart } from '@/lib/catalog';
 import { whatsappService } from '@/lib/whatsapp';
 import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
 
@@ -9,22 +10,22 @@ import { initiatePayment, resolveBaseUrl } from '@/lib/payment-initiation';
 
 // ── The exact same catalog from the website ──────────────────
 const MEAT_CUTS = [
-    { id: 'pork-chops', title: 'Pork Chops', tag: '🐖 PORK', price: 5.45 },
-    { id: 'pork-trotters', title: 'Pork Trotters', tag: '🐖 PORK', price: 3.75 },
-    { id: 'pork-shoulder', title: 'Pork Shoulder', tag: '🐖 PORK', price: 5.00 },
-    { id: 'pork-belly', title: 'Pork Belly', tag: '🐖 PORK', price: 6.00 },
-    { id: 'pork-ribs', title: 'Pork Ribs', tag: '🐖 PORK', price: 5.00 },
-    { id: 't-bone-steak', title: 'T-Bone Steak', tag: '🥩 BEEF', price: 7.20 },
-    { id: 'blade', title: 'Blade', tag: '🥩 BEEF', price: 6.55 },
-    { id: 'brisket', title: 'Brisket', tag: '🥩 BEEF', price: 6.00 },
-    { id: 'full-chicken', title: 'Full Chicken', tag: '🍗 POULTRY', price: 6.89 },
-    { id: 'chicken-breast', title: 'Chicken Breast', tag: '🍗 POULTRY', price: 4.62 },
-    { id: 'mixed-portions', title: 'Mixed Portions', tag: '🍗 POULTRY', price: 5.00 },
-    { id: 'oxtail', title: 'Oxtail', tag: '⭐ PREMIUM', price: 12.86 },
-    { id: 'beef-short-ribs', title: 'Beef Short Ribs', tag: '🥩 BEEF', price: 6.00 },
-    { id: 'beef-trotters', title: 'Beef Trotters', tag: '🥩 BEEF', price: 4.50 },
-    { id: 'liver', title: 'Liver', tag: '🔥 SPECIALTY', price: 7.50 },
-    { id: 'goat-meat', title: 'Goat Meat', tag: '🔥 SPECIALTY', price: 6.92 },
+    { id: 'pork-chops', title: 'Pork Chops', tag: '🐖 PORK', price: CATALOG['pork-chops'].pricing.usd },
+    { id: 'pork-trotters', title: 'Pork Trotters', tag: '🐖 PORK', price: CATALOG['pork-trotters'].pricing.usd },
+    { id: 'pork-shoulder', title: 'Pork Shoulder', tag: '🐖 PORK', price: CATALOG['pork-shoulder'].pricing.usd },
+    { id: 'pork-belly', title: 'Pork Belly', tag: '🐖 PORK', price: CATALOG['pork-belly'].pricing.usd },
+    { id: 'pork-ribs', title: 'Pork Ribs', tag: '🐖 PORK', price: CATALOG['pork-ribs'].pricing.usd },
+    { id: 't-bone-steak', title: 'T-Bone Steak', tag: '🥩 BEEF', price: CATALOG['t-bone-steak'].pricing.usd },
+    { id: 'blade', title: 'Blade', tag: '🥩 BEEF', price: CATALOG['blade'].pricing.usd },
+    { id: 'brisket', title: 'Brisket', tag: '🥩 BEEF', price: CATALOG['brisket'].pricing.usd },
+    { id: 'full-chicken', title: 'Full Chicken', tag: '🍗 POULTRY', price: CATALOG['full-chicken'].pricing.usd },
+    { id: 'chicken-breast', title: 'Chicken Breast', tag: '🍗 POULTRY', price: CATALOG['chicken-breast'].pricing.usd },
+    { id: 'mixed-portions', title: 'Mixed Portions', tag: '🍗 POULTRY', price: CATALOG['mixed-portions'].pricing.usd },
+    { id: 'oxtail', title: 'Oxtail', tag: '⭐ PREMIUM', price: CATALOG['oxtail'].pricing.usd },
+    { id: 'beef-short-ribs', title: 'Beef Short Ribs', tag: '🥩 BEEF', price: CATALOG['beef-short-ribs'].pricing.usd },
+    { id: 'beef-trotters', title: 'Beef Trotters', tag: '🥩 BEEF', price: CATALOG['beef-trotters'].pricing.usd },
+    { id: 'liver', title: 'Liver', tag: '🔥 SPECIALTY', price: CATALOG['liver'].pricing.usd },
+    { id: 'goat-meat', title: 'Goat Meat', tag: '🔥 SPECIALTY', price: CATALOG['goat-meat'].pricing.usd },
 ];
 
 
@@ -544,8 +545,14 @@ export const chatbotService = {
             });
         }
 
-        const cartTotal = data.cart.reduce((s, i) => s + i.price * i.kg, 0);
-        const description = data.cart.map((i) => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240);
+        // Re-price from the catalogue: the saved chat cart may hold old prices.
+        const priced = priceCart(data.cart, 'USD');
+        if (!priced.ok) {
+            await this.send(from, `Sorry, there's a problem with your cart: ${priced.error} Type *menu* to start again.`);
+            return;
+        }
+        const cartTotal = Math.round(priced.total * 100) / 100;
+        const description = priced.lines.map((i) => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240);
 
         try {
             const result = await initiatePayment({
@@ -560,7 +567,7 @@ export const chatbotService = {
                 mobilePhoneNumber: from.replace(/\D/g, '').slice(-10) || '0770000000',
                 metadata: {
                     source: 'whatsapp_bot',
-                    cart: data.cart,
+                    cart: priced.lines.map(({ id, title, kg, price }) => ({ id, title, kg, price })),
                     recipientName: data.recipientName,
                     recipientWhatsApp: data.recipientWhatsApp,
                     recipientAddress: data.recipientAddress,

@@ -6,6 +6,7 @@ import styles from './page.module.css';
 import HamperCard from '@/components/shop/HamperCard';
 import Button from '@/components/ui/Button';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
+import { CATALOG } from '@/lib/catalog';
 
 interface CartItem {
     id: string;
@@ -25,13 +26,13 @@ interface MeatCut {
     image?: string;
 }
 
-const MEAT_CUTS: MeatCut[] = [
+/** Shop copy and photos; prices come from the shared catalogue. */
+const CUT_COPY: Omit<MeatCut, 'pricing'>[] = [
     {
         id: 'pork-chops',
         title: 'Pork Chops',
         tag: 'PORK',
         description: 'Tender, bone-in pork chops. Perfect for grilling or pan-frying with your favourite spices.',
-        pricing: { usd: 5.45, zar: 101, gbp: 4.30 },
         frequency: 'weekly' as const
     },
     {
@@ -39,7 +40,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Pork Trotters',
         tag: 'PORK',
         description: 'Rich in collagen and flavour. Ideal for slow-cooked stews and traditional dishes.',
-        pricing: { usd: 3.75, zar: 69, gbp: 2.96 },
         frequency: 'weekly' as const,
         image: '/images/cuts/pork-trotters.webp'
     },
@@ -48,7 +48,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Pork Shoulder',
         tag: 'PORK',
         description: 'Versatile and succulent cut. Great for roasting, pulled pork, or braising.',
-        pricing: { usd: 5.00, zar: 93, gbp: 3.95 },
         frequency: 'weekly' as const,
         image: '/images/cuts/pork-shoulder.webp'
     },
@@ -57,7 +56,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Pork Belly',
         tag: 'PORK',
         description: 'Rich, fatty cut with amazing flavour. Perfect for slow roasting or crispy pork belly.',
-        pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
         frequency: 'weekly' as const
     },
     {
@@ -65,7 +63,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Pork Ribs',
         tag: 'PORK',
         description: 'Meaty, flavourful ribs. Smoke them, braai them, or slow-cook with BBQ sauce.',
-        pricing: { usd: 5.00, zar: 93, gbp: 3.95 },
         frequency: 'weekly' as const,
         image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop&q=80'
     },
@@ -74,7 +71,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'T-Bone Steak',
         tag: 'BEEF',
         description: 'Premium bone-in steak with both sirloin and fillet. The king of the braai.',
-        pricing: { usd: 7.20, zar: 133, gbp: 5.69 },
         frequency: 'weekly' as const,
         image: '/images/cuts/t-bone-steak.webp'
     },
@@ -83,7 +79,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Blade',
         tag: 'BEEF',
         description: 'Lean, flavourful beef cut. Great for pot roasts, stews, and slow-cooking.',
-        pricing: { usd: 6.55, zar: 121, gbp: 5.17 },
         frequency: 'weekly' as const,
         image: 'https://images.unsplash.com/photo-1558030006-450675393462?w=600&h=400&fit=crop&q=80'
     },
@@ -92,7 +87,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Brisket',
         tag: 'BEEF',
         description: 'Slow-cook this to perfection. Incredible for smoking, braising, and BBQ.',
-        pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
         frequency: 'weekly' as const,
         image: '/images/cuts/brisket.webp'
     },
@@ -101,7 +95,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Full Chicken',
         tag: 'POULTRY',
         description: 'Whole chicken, perfect for roasting, grilling, or a hearty Sunday family meal.',
-        pricing: { usd: 6.89, zar: 127, gbp: 5.44 },
         frequency: 'weekly' as const,
         image: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=600&h=400&fit=crop&q=80'
     },
@@ -110,7 +103,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Chicken Breast',
         tag: 'POULTRY',
         description: 'Lean, protein-packed chicken breast. Versatile for any recipe or meal prep.',
-        pricing: { usd: 4.62, zar: 85, gbp: 3.65 },
         frequency: 'weekly' as const
     },
     {
@@ -118,7 +110,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Mixed Portions',
         tag: 'POULTRY',
         description: 'Assorted chicken pieces — drumsticks, thighs, and wings. Great value for families.',
-        pricing: { usd: 5.00, zar: 93, gbp: 3.95 },
         frequency: 'weekly' as const,
         image: '/images/cuts/mixed-portions.webp'
     },
@@ -127,7 +118,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Oxtail',
         tag: 'PREMIUM',
         description: 'The ultimate comfort food. Slow-cooked oxtail is a Zimbabwean favourite.',
-        pricing: { usd: 12.86, zar: 238, gbp: 10.16 },
         frequency: 'weekly' as const
     },
     {
@@ -135,7 +125,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Beef Short Ribs',
         tag: 'BEEF',
         description: 'Thick, meaty ribs with incredible marbling. Perfect for braising or the braai.',
-        pricing: { usd: 6.00, zar: 111, gbp: 4.74 },
         frequency: 'weekly' as const,
         image: '/images/cuts/beef-short-ribs.webp'
     },
@@ -144,7 +133,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Beef Trotters',
         tag: 'BEEF',
         description: 'Traditional and nutritious. Perfect for hearty soups and slow-cooked dishes.',
-        pricing: { usd: 4.50, zar: 83, gbp: 3.56 },
         frequency: 'weekly' as const
     },
     {
@@ -152,7 +140,6 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Liver',
         tag: 'SPECIALTY',
         description: 'Nutrient-rich organ meat. Pan-fried with onions — a classic high-protein meal.',
-        pricing: { usd: 7.50, zar: 139, gbp: 5.93 },
         frequency: 'weekly' as const
     },
     {
@@ -160,10 +147,11 @@ const MEAT_CUTS: MeatCut[] = [
         title: 'Goat Meat',
         tag: 'SPECIALTY',
         description: 'Lean and flavourful. Popular for curries, stews, and traditional celebrations.',
-        pricing: { usd: 6.92, zar: 128, gbp: 5.47 },
         frequency: 'weekly' as const
     }
 ];
+
+const MEAT_CUTS: MeatCut[] = CUT_COPY.map((cut) => ({ ...cut, title: CATALOG[cut.id].title, pricing: CATALOG[cut.id].pricing }));
 
 type FilterType = 'all' | 'pork' | 'beef' | 'poultry' | 'premium' | 'specialty';
 const CATEGORY_FILTERS: FilterType[] = ['pork', 'beef', 'poultry', 'premium', 'specialty'];

@@ -1,7 +1,7 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 import { notifyOrderPaymentCompleted } from '@/lib/order-notifications';
-import { nextDeliveryDate, PLAN_WEEKS } from '@/lib/delivery';
+import { nextDeliveryDate, planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 import { applyRenewalPayment, PLAN_ID } from '@/lib/plans';
 
 /**
@@ -28,8 +28,10 @@ interface OrderMetadata {
     recipientSuburb?: string;
     senderName?: string;
     frequency?: string;
-    /** "MONTHLY" = prepaid weekly plan (PLAN_WEEKS deliveries per payment). */
+    /** "MONTHLY" = prepaid plan, paid per 4-week cycle. */
     plan?: string;
+    /** How often a plan delivers: WEEKLY, BI_WEEKLY or MONTHLY (missing = WEEKLY). */
+    planFrequency?: string;
     autoRenew?: boolean;
     payerWhatsApp?: string;
     /** Set on renewal payments: the plan (subscription) being topped up. */
@@ -87,6 +89,8 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
     }
 
     const isPlan = meta.plan === PLAN_ID;
+    const freq = planFrequency(meta.planFrequency);
+    const perCycle = PLAN_FREQUENCIES[freq].deliveries;
 
     const items = (meta.cart?.length ? meta.cart : meta.cartItems) || [];
     const recipientName = (meta.recipientName || '').trim();
@@ -125,16 +129,16 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
             senderId: payment.userId,
             recipientId: recipient.id,
             hamperId: hamper.id,
-            frequency: isPlan ? 'WEEKLY' : normalizeFrequency(meta.frequency),
+            frequency: isPlan ? freq : normalizeFrequency(meta.frequency),
             nextDelivery: scheduledDate,
             ...(isPlan
                 ? {
-                    // Prepaid plan: this payment covers PLAN_WEEKS weekly deliveries.
+                    // Prepaid plan: this payment covers one 4-week cycle of deliveries.
                     // The first is created below; lib/plans.ts schedules the rest.
                     isActive: true,
                     plan: PLAN_ID,
-                    deliveriesPerCycle: PLAN_WEEKS,
-                    deliveriesLeft: PLAN_WEEKS - 1,
+                    deliveriesPerCycle: perCycle,
+                    deliveriesLeft: perCycle - 1,
                     autoRenew: meta.autoRenew !== false,
                     cycleAmount: payment.amount,
                     cycleCurrency: currency,
@@ -165,7 +169,7 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
             userId: payment.userId,
             amount: payment.amount,
             type: 'DEPOSIT',
-            description: `${isPlan ? `Weekly plan (${PLAN_WEEKS} deliveries)` : 'Order'} payment via ZB Smile & Pay (${currency}) — ${hamperName}`.slice(0, 500),
+            description: `${isPlan ? `Plan (${planDeliveriesLabel(freq)})` : 'Order'} payment via ZB Smile & Pay (${currency}) — ${hamperName}`.slice(0, 500),
             reference: payment.orderReference || `PAY-${payment.id.slice(-6).toUpperCase()}`,
         },
     });
@@ -183,9 +187,12 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
         .sendMessage({
             to: recipientWhatsApp,
             text: isPlan
-                ? `Hi ${recipientName}! 🥩 ${senderName} has set up weekly fresh meat deliveries for you from Hexad Market.\n\n` +
+                ? `Hi ${recipientName}! 🥩 ${senderName} has set up regular fresh meat deliveries for you from Hexad Market.\n\n` +
                   `${hamperName}\n\n` +
-                  `Every Wednesday for the next ${PLAN_WEEKS} weeks, starting ${dateLabel}. We'll message you when each one is on its way.`
+                  (perCycle === 1
+                      ? `Your first delivery is on ${dateLabel}, then ${PLAN_FREQUENCIES[freq].cadence}. `
+                      : `Delivered ${PLAN_FREQUENCIES[freq].cadence}, starting ${dateLabel}. `) +
+                  `We'll message you when each one is on its way.`
                 : `Hi ${recipientName}! 🥩 ${senderName} has ordered fresh meat for you from Hexad Market.\n\n` +
                   `${hamperName}\n\n` +
                   `Delivery is scheduled for ${dateLabel}. We'll message you when it's on its way.`,

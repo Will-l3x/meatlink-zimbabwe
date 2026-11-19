@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
 import { readStoredJson, writeStoredJson, removeStoredItem } from '@/lib/storage';
-import { PLAN_WEEKS } from '@/lib/delivery';
+import { planDeliveriesLabel, planFrequency, PLAN_FREQUENCIES } from '@/lib/delivery';
 
 type Outcome = { status: 'processing' | 'success' | 'failed'; message: string; title?: string };
 
@@ -18,6 +18,7 @@ interface PaymentInfo {
     orderReference?: string | null;
     subscriptionId?: string | null;
     kind?: 'single' | 'plan' | 'renewal';
+    planFrequency?: string;
 }
 
 interface PendingOrder {
@@ -150,12 +151,15 @@ function ZBReturnContent() {
                         if (payment.purpose === 'WALLET_TOPUP') {
                             message = 'Your wallet has been topped up successfully!';
                         } else if (payment.kind === 'renewal') {
+                            const freq = planFrequency(payment.planFrequency);
                             title = 'Plan renewed';
-                            message = `Thank you. ${PLAN_WEEKS} more weekly deliveries are paid for and will carry on every Wednesday. You can follow them under My orders.`;
+                            message = `Thank you. ${planDeliveriesLabel(freq)} more ${freq === 'MONTHLY' ? 'is' : 'are'} paid for and will carry on ${PLAN_FREQUENCIES[freq].cadence}. You can follow them under My orders.`;
                         } else if (payment.kind === 'plan') {
-                            title = 'Weekly plan set up';
-                            message = `${recipientName} will get this order every Wednesday for the next ${PLAN_WEEKS} weeks, starting ${nextWednesdayLabel()}. ` +
-                                `We'll WhatsApp them before each delivery. When the ${PLAN_WEEKS} weeks are nearly used up you'll find a link to pay for the next month under My orders.`;
+                            const freq = planFrequency(payment.planFrequency);
+                            title = `${PLAN_FREQUENCIES[freq].label} plan set up`;
+                            message = `${recipientName} will get this order ${PLAN_FREQUENCIES[freq].cadence}, starting ${nextWednesdayLabel()}. ` +
+                                `You've paid for the next 4 weeks (${planDeliveriesLabel(freq)}). We'll WhatsApp ${recipientName} before each delivery, ` +
+                                `and before the paid deliveries run out you'll get a link to pay for the next 4 weeks.`;
                         } else {
                             message = `Your order is confirmed for delivery on ${nextWednesdayLabel()}. ` +
                                 `We'll WhatsApp ${recipientName} when it's on the way, and you can follow it under My orders.`;

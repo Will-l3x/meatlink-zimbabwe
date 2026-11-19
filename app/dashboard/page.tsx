@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import { planDeliveriesLabel, PLAN_FREQUENCIES, type PlanFrequency } from '@/lib/delivery';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
 
@@ -37,7 +38,8 @@ interface Delivery {
 }
 
 interface PlanSummary {
-    weeks: number;
+    frequency: PlanFrequency;
+    deliveriesPerCycle: number;
     deliveriesLeft: number;
     autoRenew: boolean;
     amount: number;
@@ -171,8 +173,8 @@ export default function DashboardPage() {
             {duePlans.map((d) => d.plan && (
                 <div key={d.id} className={styles.renewBanner} role="status">
                     <div>
-                        <strong>{d.recipientName}&apos;s weekly plan needs paying for next month</strong>
-                        <span>The {d.plan.weeks} prepaid deliveries are used up after {d.deliveryDate || 'this Wednesday'}.</span>
+                        <strong>{d.recipientName}&apos;s plan needs paying for the next 4 weeks</strong>
+                        <span>The prepaid deliveries are used up after {d.deliveryDate || 'this Wednesday'}.</span>
                     </div>
                     <Button href={d.plan.renewPath}>Pay {money(d.plan.amount, d.plan.currency)} →</Button>
                 </div>
@@ -239,17 +241,17 @@ export default function DashboardPage() {
                                         {del.plan && (
                                             <div className={styles.planBox}>
                                                 <span className={styles.planLine}>
-                                                    📅 Weekly plan ·{' '}
+                                                    📅 {PLAN_FREQUENCIES[del.plan.frequency].label} plan ·{' '}
                                                     {del.plan.state === 'ended'
                                                         ? 'ended'
                                                         : del.plan.deliveriesLeft > 0
-                                                            ? `${del.plan.deliveriesLeft} of ${del.plan.weeks} paid deliveries to come`
+                                                            ? `${del.plan.deliveriesLeft} of ${del.plan.deliveriesPerCycle} paid deliver${del.plan.deliveriesPerCycle === 1 ? 'y' : 'ies'} to come`
                                                             : 'all paid deliveries used'}
                                                 </span>
                                                 <div className={styles.planActions}>
                                                     {del.plan.state !== 'active' ? (
                                                         <Button href={del.plan.renewPath} style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem' }}>
-                                                            {del.plan.state === 'ended' ? 'Restart' : 'Pay'} {money(del.plan.amount, del.plan.currency)} for {del.plan.weeks} more weeks
+                                                            {del.plan.state === 'ended' ? 'Restart' : 'Pay'} {money(del.plan.amount, del.plan.currency)} for {planDeliveriesLabel(del.plan.frequency, del.plan.deliveriesPerCycle)}
                                                         </Button>
                                                     ) : (
                                                         <a href={del.plan.renewPath} className={styles.planLink}>Pay ahead</a>

@@ -550,7 +550,7 @@ export default function AdminPage() {
                                                 <td>{sub.recipient.suburb}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.frequency === 'WEEKLY' ? styles.badgeWeekly : styles.badgeMonthly}`}>
-                                                        {sub.plan ? 'WEEKLY PLAN' : sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
+                                                        {sub.plan ? `${sub.frequency.replace('_', '-')} PLAN` : sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
                                                     </span>
                                                 </td>
                                                 <td style={{ fontSize: '0.8rem' }}>{formatShortDate(sub.nextDelivery)}</td>
@@ -566,7 +566,7 @@ export default function AdminPage() {
                                                     </span>
                                                     {sub.plan && (
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                                            {sub.cycleCurrency || 'USD'} {(sub.cycleAmount ?? 0).toFixed(2)} / {sub.deliveriesPerCycle ?? 4} weeks · renew {sub.autoRenew === false ? 'off' : 'on'}
+                                                            {sub.cycleCurrency || 'USD'} {(sub.cycleAmount ?? 0).toFixed(2)} / 4 weeks · {sub.frequency === 'MONTHLY' ? 'monthly' : sub.frequency === 'BI_WEEKLY' ? 'every 2 weeks' : 'weekly'} · renew {sub.autoRenew === false ? 'off' : 'on'}
                                                         </div>
                                                     )}
                                                 </td>

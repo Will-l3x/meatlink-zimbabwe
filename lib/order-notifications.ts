@@ -1,6 +1,6 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
-import { PLAN_WEEKS } from '@/lib/delivery';
+import { planDeliveriesLabel, planFrequency } from '@/lib/delivery';
 
 /** Owner WhatsApp (E.164 without +). Override with ORDER_NOTIFY_WHATSAPP in production. */
 const DEFAULT_OWNER_WHATSAPP = '27765762104';
@@ -17,6 +17,7 @@ type OrderPaymentMetadata = {
     recipientSuburb?: string;
     senderName?: string;
     plan?: string;
+    planFrequency?: string;
     autoRenew?: boolean;
     renewalOf?: string;
     ownerPlacedNotifiedAt?: string;
@@ -72,9 +73,9 @@ function buildOrderMessage(params: {
         `Channel: ${source}\n`;
 
     if (meta.renewalOf) {
-        msg += `Type: 🔁 *Plan renewal*: ${PLAN_WEEKS} more weekly deliveries\n`;
+        msg += `Type: 🔁 *Plan renewal*: ${planDeliveriesLabel(planFrequency(meta.planFrequency))} more\n`;
     } else if (meta.plan === 'MONTHLY') {
-        msg += `Type: 📅 *Weekly plan*: ${PLAN_WEEKS} weekly deliveries, paid upfront (auto-renew ${meta.autoRenew === false ? 'off' : 'on'})\n`;
+        msg += `Type: 📅 *Plan*: ${planDeliveriesLabel(planFrequency(meta.planFrequency))}, paid upfront for 4 weeks (auto-renew ${meta.autoRenew === false ? 'off' : 'on'})\n`;
     } else {
         msg += `Type: Single delivery\n`;
     }

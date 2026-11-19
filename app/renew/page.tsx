@@ -4,13 +4,15 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
+import { planDeliveriesLabel, PLAN_FREQUENCIES, type PlanFrequency } from '@/lib/delivery';
 
 interface PlanInfo {
     id: string;
     recipientName: string;
     suburb: string;
     items: Array<{ title: string; kg: number }>;
-    weeks: number;
+    frequency: PlanFrequency;
+    deliveriesPerCycle: number;
     amount: number;
     currency: string;
     deliveriesLeft: number;
@@ -95,16 +97,18 @@ function RenewContent() {
     }
 
     const lastDrop = new Date(plan.nextDelivery).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const freq = PLAN_FREQUENCIES[plan.frequency];
+    const what = planDeliveriesLabel(plan.frequency, plan.deliveriesPerCycle);
     const status = !plan.isActive
-        ? `This plan has ended. Paying restarts ${plan.weeks} weekly deliveries from the next Wednesday.`
+        ? `This plan has ended. Paying restarts it with ${what}, from the next Wednesday.`
         : plan.renewalDue
-            ? `The prepaid deliveries are used up. The last one is on ${lastDrop}. Pay now to keep them coming every Wednesday.`
-            : `Deliveries are already paid up to ${plan.deliveriesLeft === 0 ? lastDrop : 'the coming weeks'}. Paying now adds ${plan.weeks} more, straight after those.`;
+            ? `The prepaid deliveries are used up. The last one ${new Date(plan.nextDelivery) < new Date() ? 'was' : 'is'} on ${lastDrop}. Pay now to keep them coming ${freq.cadence}.`
+            : `Deliveries are already paid up to ${plan.deliveriesLeft === 0 ? lastDrop : 'the coming weeks'}. Paying now adds ${what}, straight after those.`;
 
     return (
         <div style={card}>
             <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.5rem' }}>
-                Weekly plan
+                {freq.label} plan
             </p>
             <h1 style={{ fontSize: '1.6rem', marginBottom: '0.75rem' }}>
                 Keep {plan.recipientName}&apos;s deliveries going
@@ -112,7 +116,7 @@ function RenewContent() {
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>{status}</p>
 
             <div style={{ background: 'var(--background)', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', textAlign: 'left' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Every Wednesday · {plan.suburb}, Harare</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{freq.cadence.replace(/^./, (c) => c.toUpperCase())} · {plan.suburb}, Harare</div>
                 {plan.items.map((i) => (
                     <div key={i.title} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.95rem' }}>
                         <span>{i.title}</span>
@@ -120,7 +124,7 @@ function RenewContent() {
                     </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', marginTop: '0.75rem', paddingTop: '0.75rem', fontWeight: 800 }}>
-                    <span>{plan.weeks} weekly deliveries</span>
+                    <span>{what} · 4 weeks</span>
                     <span>{money(plan.amount, plan.currency)}</span>
                 </div>
             </div>
