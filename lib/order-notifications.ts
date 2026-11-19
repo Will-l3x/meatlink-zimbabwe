@@ -1,5 +1,6 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
+import { PLAN_WEEKS } from '@/lib/delivery';
 
 /** Owner WhatsApp (E.164 without +). Override with ORDER_NOTIFY_WHATSAPP in production. */
 const DEFAULT_OWNER_WHATSAPP = '27765762104';
@@ -15,6 +16,9 @@ type OrderPaymentMetadata = {
     recipientAddress?: string;
     recipientSuburb?: string;
     senderName?: string;
+    plan?: string;
+    autoRenew?: boolean;
+    renewalOf?: string;
     ownerPlacedNotifiedAt?: string;
     orderNotificationsSentAt?: string;
 };
@@ -65,7 +69,16 @@ function buildOrderMessage(params: {
         `${headline}\n\n` +
         `Ref: *${orderReference || 'N/A'}*\n` +
         `Total: *${currency.toUpperCase()} ${amount.toFixed(2)}*\n` +
-        `Channel: ${source}\n\n`;
+        `Channel: ${source}\n`;
+
+    if (meta.renewalOf) {
+        msg += `Type: 🔁 *Plan renewal*: ${PLAN_WEEKS} more weekly deliveries\n`;
+    } else if (meta.plan === 'MONTHLY') {
+        msg += `Type: 📅 *Weekly plan*: ${PLAN_WEEKS} weekly deliveries, paid upfront (auto-renew ${meta.autoRenew === false ? 'off' : 'on'})\n`;
+    } else {
+        msg += `Type: Single delivery\n`;
+    }
+    msg += `\n`;
 
     if (lines.length) {
         msg += `*Items:*\n${lines.join('\n')}\n\n`;
@@ -89,7 +102,7 @@ function buildOrderMessage(params: {
     return msg.trim();
 }
 
-async function sendOwnerWhatsApp(text: string) {
+export async function sendOwnerWhatsApp(text: string) {
     const to = ownerWhatsAppNumber();
     if (!to) {
         console.warn('[Order Notify] No owner WhatsApp number configured');

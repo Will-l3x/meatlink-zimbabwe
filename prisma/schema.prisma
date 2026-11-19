@@ -103,7 +103,21 @@ model Subscription {
   isActive      Boolean        @default(true)
   nextDelivery  DateTime
   createdAt     DateTime       @default(now())
-  
+
+  // Prepaid weekly plan ("pay monthly, delivered weekly"). All optional so
+  // older one-off orders keep loading. plan = "MONTHLY" for plans, else unset.
+  plan               String?
+  deliveriesPerCycle Int?       // weekly deliveries bought per payment (4)
+  deliveriesLeft     Int?       // paid deliveries not yet scheduled
+  autoRenew          Boolean?   // send a renewal payment link when it runs out
+  cycleAmount        Float?     // price of one cycle, charged on renewal
+  cycleCurrency      String?
+  cart               String?    // JSON cart lines, reused on renewal
+  payerWhatsApp      String?    // where renewal links are sent
+  cycleCount         Int?       // number of paid cycles so far
+  renewalDueAt       DateTime?  // set when the balance ran out and a link was sent
+  lastRenewalPaymentId String?  // guards against applying a renewal twice
+
   sender        User           @relation(fields: [senderId], references: [id])
   recipient     Recipient      @relation(fields: [recipientId], references: [id])
   hamper        Hamper         @relation(fields: [hamperId], references: [id])

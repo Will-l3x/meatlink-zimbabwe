@@ -35,6 +35,12 @@ function sign(payload: string, secret: string): string {
   return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
 }
 
+/** HMAC a value with the session secret (null when no secret is configured). */
+export function signValue(value: string): string | null {
+  const secret = getSecret();
+  return secret ? sign(value, secret) : null;
+}
+
 export function createSessionToken(uid: string, role: SessionRole): string {
   const secret = getSecret();
   if (!secret) throw new Error('SESSION_SECRET is not configured');

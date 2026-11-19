@@ -22,6 +22,8 @@ export interface InitiatePaymentInput {
     lastName?: string;
     email?: string;
     mobilePhoneNumber?: string;
+    /** Where "Try again" on the return page should go (a site path), e.g. a renewal link. */
+    retryPath?: string;
 }
 
 export type InitiatePaymentResult =
@@ -86,14 +88,15 @@ export async function initiatePayment(input: InitiatePaymentInput): Promise<Init
     console.log(`[ZB Payment] Calling ZB API: ${currency} ${roundedAmount} | Ref: ${orderRef} | Payment ${payment.id}`);
 
     const description = (input.description || 'Hexad Market order').slice(0, 240);
+    const retry = input.retryPath ? `&retry=${encodeURIComponent(input.retryPath)}` : '';
     const zbResult = await paymentService.initiateTransaction({
         orderReference: orderRef,
         amount: roundedAmount,
         currencyCode: currency,
-        returnUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&orderRef=${orderRef}`,
+        returnUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&orderRef=${orderRef}${retry}`,
         resultUrl: `${input.baseUrl}/api/payments/zb-smilenpay/callback`,
-        cancelUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=cancelled`,
-        failureUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=failed`,
+        cancelUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=cancelled${retry}`,
+        failureUrl: `${input.baseUrl}/checkout/zb-return?paymentId=${payment.id}&status=failed${retry}`,
         itemName: description,
         itemDescription: description,
         firstName: input.firstName || 'Hexad',

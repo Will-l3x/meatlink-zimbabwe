@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getPrisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import { whatsappService } from '@/lib/whatsapp';
+import { resolveBaseUrl } from '@/lib/payment-initiation';
+import { publicBaseUrl, runPlanScheduler } from '@/lib/plans';
 
 export async function GET(request: Request) {
     const guard = requireAdmin(request);
@@ -63,6 +65,9 @@ export async function POST(request: Request) {
         }
 
         if (action === 'generate_batch') {
+            // Prepaid weekly plans draw down their own balance (same job as the daily cron).
+            const plans = await runPlanScheduler(publicBaseUrl(resolveBaseUrl(request)));
+
             const now = new Date();
             const dayOfWeek = now.getDay();
             const daysUntilWednesday = (3 - dayOfWeek + 7) % 7 || 7;
@@ -96,6 +101,7 @@ export async function POST(request: Request) {
             const existingSubIds = new Set(existingDeliveries.map(d => d.subscriptionId));
             const newDeliveries = [];
             for (const sub of activeSubs) {
+                if (sub.plan) continue; // handled by runPlanScheduler above
                 if (!existingSubIds.has(sub.id)) {
                     const delivery = await db.delivery.create({
                         data: {
@@ -120,8 +126,11 @@ export async function POST(request: Request) {
 
             return NextResponse.json({
                 success: true,
-                message: `Generated ${newDeliveries.length} new deliveries for ${nextWednesday.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}`,
-                newCount: newDeliveries.length,
+                message:
+                    `Generated ${newDeliveries.length + plans.scheduled} new deliveries for ${nextWednesday.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}` +
+                    (plans.renewalsDue ? ` · ${plans.renewalsDue} plan renewal link${plans.renewalsDue === 1 ? '' : 's'} sent` : ''),
+                newCount: newDeliveries.length + plans.scheduled,
+                renewalsDue: plans.renewalsDue,
                 skipped: existingDeliveries.length,
                 scheduledDate: nextWednesday.toISOString()
             });

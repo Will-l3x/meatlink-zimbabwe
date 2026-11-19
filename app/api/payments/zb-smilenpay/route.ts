@@ -62,6 +62,18 @@ export async function POST(request: Request) {
     }
 }
 
+/** What the return page should say: a one-off order, a new weekly plan, or a plan renewal. */
+function orderKind(metadata: string | null): 'single' | 'plan' | 'renewal' {
+    try {
+        const meta = JSON.parse(metadata || '{}');
+        if (meta?.renewalOf) return 'renewal';
+        if (meta?.plan === 'MONTHLY') return 'plan';
+    } catch {
+        // treat unreadable metadata as a single order
+    }
+    return 'single';
+}
+
 /**
  * GET /api/payments/zb-smilenpay?paymentId=xxx&orderRef=xxx
  * Check (and, if ZB reports a final state, settle) a payment.
@@ -113,6 +125,7 @@ export async function GET(request: Request) {
                 purpose: payment.purpose,
                 orderReference: payment.orderReference,
                 subscriptionId: fulfilledSubscriptionId(payment.metadata),
+                kind: orderKind(payment.metadata),
             }
         });
     } catch (error: unknown) {

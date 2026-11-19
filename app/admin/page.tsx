@@ -77,6 +77,13 @@ interface AdminData {
         isActive: boolean;
         nextDelivery: string;
         createdAt: string;
+        plan?: string | null;
+        deliveriesLeft?: number | null;
+        deliveriesPerCycle?: number | null;
+        autoRenew?: boolean | null;
+        renewalDueAt?: string | null;
+        cycleAmount?: number | null;
+        cycleCurrency?: string | null;
         sender: { name: string; email: string };
         recipient: { name: string; suburb: string; whatsapp: string };
     }>;
@@ -543,14 +550,25 @@ export default function AdminPage() {
                                                 <td>{sub.recipient.suburb}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.frequency === 'WEEKLY' ? styles.badgeWeekly : styles.badgeMonthly}`}>
-                                                        {sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
+                                                        {sub.plan ? 'WEEKLY PLAN' : sub.isActive ? sub.frequency.replace('_', '-') : 'ONE-OFF'}
                                                     </span>
                                                 </td>
                                                 <td style={{ fontSize: '0.8rem' }}>{formatShortDate(sub.nextDelivery)}</td>
                                                 <td>
                                                     <span className={`${styles.badge} ${sub.isActive ? styles.badgeActive : styles.badgeInactive}`}>
-                                                        {sub.isActive ? 'Recurring' : 'Single order'}
+                                                        {!sub.plan
+                                                            ? (sub.isActive ? 'Recurring' : 'Single order')
+                                                            : !sub.isActive
+                                                                ? 'Plan ended'
+                                                                : sub.renewalDueAt
+                                                                    ? 'Renewal due (unpaid)'
+                                                                    : `${sub.deliveriesLeft ?? 0} more to schedule`}
                                                     </span>
+                                                    {sub.plan && (
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                                            {sub.cycleCurrency || 'USD'} {(sub.cycleAmount ?? 0).toFixed(2)} / {sub.deliveriesPerCycle ?? 4} weeks · renew {sub.autoRenew === false ? 'off' : 'on'}
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

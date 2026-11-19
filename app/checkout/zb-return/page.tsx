@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { whatsappLink } from '@/lib/contact';
 import { readStoredJson, writeStoredJson, removeStoredItem } from '@/lib/storage';
+import { PLAN_WEEKS } from '@/lib/delivery';
 
-type Outcome = { status: 'processing' | 'success' | 'failed'; message: string };
+type Outcome = { status: 'processing' | 'success' | 'failed'; message: string; title?: string };
 
 interface PaymentInfo {
     id: string;
@@ -16,6 +17,7 @@ interface PaymentInfo {
     purpose?: string;
     orderReference?: string | null;
     subscriptionId?: string | null;
+    kind?: 'single' | 'plan' | 'renewal';
 }
 
 interface PendingOrder {
@@ -68,6 +70,9 @@ function recordLocalOutcome(payment: PaymentInfo): string | undefined {
         return undefined;
     }
 
+    // A plan renewal was paid from a link: the cart and checkout draft belong to something else.
+    if (payment.kind === 'renewal') return undefined;
+
     const pending = readStoredJson<PendingOrder | null>('hexad_pending_zb_order', null);
     const senderId = pending?.senderId || user?.id;
     if (senderId) {
@@ -100,6 +105,9 @@ function ZBReturnContent() {
     const paymentId = searchParams.get('paymentId') || '';
     const orderRef = searchParams.get('orderRef') || '';
     const urlStatus = searchParams.get('status') || '';
+    // Renewal payments come back with their own "try again" page instead of the cart.
+    const retryRaw = searchParams.get('retry') || '';
+    const retryPath = retryRaw.startsWith('/renew?') ? retryRaw : '';
 
     // Outcomes we can determine from the URL alone, without polling.
     const urlOutcome = useMemo<Outcome | null>(() => {
@@ -136,14 +144,23 @@ function ZBReturnContent() {
                 if (data.success && data.payment) {
                     const payment = data.payment as PaymentInfo;
                     if (payment.status === 'COMPLETED') {
-                        const recipientName = recordLocalOutcome(payment);
-                        finish({
-                            status: 'success',
-                            message: payment.purpose === 'WALLET_TOPUP'
-                                ? 'Your wallet has been topped up successfully!'
-                                : `Your order is confirmed for delivery on ${nextWednesdayLabel()}. ` +
-                                  `We'll WhatsApp ${recipientName || 'the recipient'} when it's on the way, and you can follow it under My orders.`,
-                        });
+                        const recipientName = recordLocalOutcome(payment) || 'the recipient';
+                        let message: string;
+                        let title = 'Order confirmed';
+                        if (payment.purpose === 'WALLET_TOPUP') {
+                            message = 'Your wallet has been topped up successfully!';
+                        } else if (payment.kind === 'renewal') {
+                            title = 'Plan renewed';
+                            message = `Thank you. ${PLAN_WEEKS} more weekly deliveries are paid for and will carry on every Wednesday. You can follow them under My orders.`;
+                        } else if (payment.kind === 'plan') {
+                            title = 'Weekly plan set up';
+                            message = `${recipientName} will get this order every Wednesday for the next ${PLAN_WEEKS} weeks, starting ${nextWednesdayLabel()}. ` +
+                                `We'll WhatsApp them before each delivery. When the ${PLAN_WEEKS} weeks are nearly used up you'll find a link to pay for the next month under My orders.`;
+                        } else {
+                            message = `Your order is confirmed for delivery on ${nextWednesdayLabel()}. ` +
+                                `We'll WhatsApp ${recipientName} when it's on the way, and you can follow it under My orders.`;
+                        }
+                        finish({ status: 'success', title, message });
                         return;
                     }
                     if (payment.status === 'FAILED' || payment.status === 'EXPIRED') {
@@ -206,7 +223,7 @@ function ZBReturnContent() {
                             : 'var(--foreground)',
                 }}>
                     {view.status === 'processing' && 'Confirming your payment…'}
-                    {view.status === 'success' && 'Order confirmed'}
+                    {view.status === 'success' && (view.title || 'Order confirmed')}
                     {view.status === 'failed' && 'Payment not completed'}
                 </h1>
 
@@ -247,8 +264,8 @@ function ZBReturnContent() {
                         )}
                         {view.status === 'failed' && (
                             <>
-                                <Button fullWidth onClick={() => router.push('/checkout')}>
-                                    Try again (your cart is saved)
+                                <Button fullWidth onClick={() => router.push(retryPath || '/checkout')}>
+                                    {retryPath ? 'Try again' : 'Try again (your cart is saved)'}
                                 </Button>
                                 <Button fullWidth variant="secondary" href={whatsappLink(`Hi, I had a problem paying for my order${orderRef ? ` (ref ${orderRef})` : ''}.`)}>
                                     Get help on WhatsApp

@@ -1,6 +1,8 @@
 import { getPrisma } from '@/lib/prisma';
 import { whatsappService } from '@/lib/whatsapp';
 import { notifyOrderPaymentCompleted } from '@/lib/order-notifications';
+import { nextDeliveryDate, PLAN_WEEKS } from '@/lib/delivery';
+import { applyRenewalPayment, PLAN_ID } from '@/lib/plans';
 
 /**
  * Server-side order fulfilment.
@@ -26,6 +28,12 @@ interface OrderMetadata {
     recipientSuburb?: string;
     senderName?: string;
     frequency?: string;
+    /** "MONTHLY" = prepaid weekly plan (PLAN_WEEKS deliveries per payment). */
+    plan?: string;
+    autoRenew?: boolean;
+    payerWhatsApp?: string;
+    /** Set on renewal payments: the plan (subscription) being topped up. */
+    renewalOf?: string;
     fulfilledSubscriptionId?: string;
     fulfilledAt?: string;
     [key: string]: unknown;
@@ -45,14 +53,7 @@ function normalizeFrequency(value: unknown): Frequency {
     return value === 'BI_WEEKLY' || value === 'MONTHLY' ? value : 'WEEKLY';
 }
 
-/** Next Wednesday at 09:00 local server time (deliveries run on Wednesdays). */
-export function nextDeliveryDate(from: Date = new Date()): Date {
-    const daysUntilWednesday = (3 - from.getDay() + 7) % 7 || 7;
-    const next = new Date(from);
-    next.setDate(from.getDate() + daysUntilWednesday);
-    next.setHours(9, 0, 0, 0);
-    return next;
-}
+export { nextDeliveryDate };
 
 export function describeCart(items: CartLine[]): string {
     return items.map((i) => `${i.title} (${i.kg}kg)`).join(', ');
@@ -74,6 +75,18 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
 
     const meta = parseMetadata(payment.metadata);
     if (meta.fulfilledSubscriptionId) return meta.fulfilledSubscriptionId;
+
+    if (meta.renewalOf) {
+        const renewedId = await applyRenewalPayment(payment, meta.renewalOf);
+        if (renewedId) {
+            meta.fulfilledSubscriptionId = renewedId;
+            meta.fulfilledAt = new Date().toISOString();
+            await db.payment.update({ where: { id: paymentId }, data: { metadata: JSON.stringify(meta) } });
+        }
+        return renewedId;
+    }
+
+    const isPlan = meta.plan === PLAN_ID;
 
     const items = (meta.cart?.length ? meta.cart : meta.cartItems) || [];
     const recipientName = (meta.recipientName || '').trim();
@@ -112,11 +125,29 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
             senderId: payment.userId,
             recipientId: recipient.id,
             hamperId: hamper.id,
-            frequency: normalizeFrequency(meta.frequency),
+            frequency: isPlan ? 'WEEKLY' : normalizeFrequency(meta.frequency),
             nextDelivery: scheduledDate,
-            // Each payment covers exactly one delivery, so this is a one-off order:
-            // inactive subscriptions are skipped by the admin "Generate Next Batch".
-            isActive: false,
+            ...(isPlan
+                ? {
+                    // Prepaid plan: this payment covers PLAN_WEEKS weekly deliveries.
+                    // The first is created below; lib/plans.ts schedules the rest.
+                    isActive: true,
+                    plan: PLAN_ID,
+                    deliveriesPerCycle: PLAN_WEEKS,
+                    deliveriesLeft: PLAN_WEEKS - 1,
+                    autoRenew: meta.autoRenew !== false,
+                    cycleAmount: payment.amount,
+                    cycleCurrency: currency,
+                    cart: JSON.stringify(items),
+                    payerWhatsApp: (meta.payerWhatsApp || '').trim() || null,
+                    cycleCount: 1,
+                    renewalDueAt: null,
+                }
+                : {
+                    // One payment, one delivery: a one-off order. Inactive
+                    // subscriptions are skipped by the scheduler and batch button.
+                    isActive: false,
+                }),
         },
     });
 
@@ -134,7 +165,7 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
             userId: payment.userId,
             amount: payment.amount,
             type: 'DEPOSIT',
-            description: `Order payment via ZB Smile & Pay (${currency}) — ${hamperName}`.slice(0, 500),
+            description: `${isPlan ? `Weekly plan (${PLAN_WEEKS} deliveries)` : 'Order'} payment via ZB Smile & Pay (${currency}) — ${hamperName}`.slice(0, 500),
             reference: payment.orderReference || `PAY-${payment.id.slice(-6).toUpperCase()}`,
         },
     });
@@ -151,10 +182,13 @@ export async function fulfillPaidOrder(paymentId: string): Promise<string | null
     whatsappService
         .sendMessage({
             to: recipientWhatsApp,
-            text:
-                `Hi ${recipientName}! 🥩 ${senderName} has ordered fresh meat for you from Hexad Market.\n\n` +
-                `${hamperName}\n\n` +
-                `Delivery is scheduled for ${dateLabel}. We'll message you when it's on its way.`,
+            text: isPlan
+                ? `Hi ${recipientName}! 🥩 ${senderName} has set up weekly fresh meat deliveries for you from Hexad Market.\n\n` +
+                  `${hamperName}\n\n` +
+                  `Every Wednesday for the next ${PLAN_WEEKS} weeks, starting ${dateLabel}. We'll message you when each one is on its way.`
+                : `Hi ${recipientName}! 🥩 ${senderName} has ordered fresh meat for you from Hexad Market.\n\n` +
+                  `${hamperName}\n\n` +
+                  `Delivery is scheduled for ${dateLabel}. We'll message you when it's on its way.`,
         })
         .catch((e) => console.error('[Fulfilment] Recipient WhatsApp failed:', e));
 

@@ -6,7 +6,7 @@ import styles from './page.module.css';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import { readStoredJson, writeStoredJson } from '@/lib/storage';
-import { SUBURBS } from '@/lib/delivery';
+import { SUBURBS, PLAN_WEEKS } from '@/lib/delivery';
 
 interface CartItem {
     id: string;
@@ -28,6 +28,11 @@ type Step = 1 | 2 | 3;
 
 /** Delivery details typed at checkout, kept until the order is paid. */
 const CHECKOUT_DRAFT_KEY = 'hexad_checkout_draft';
+/** Chosen plan (one delivery vs weekly, paid monthly), remembered between visits. */
+const CHECKOUT_PLAN_KEY = 'hexad_checkout_plan';
+
+type PlanChoice = 'once' | 'weekly';
+interface PlanPrefs { plan: PlanChoice; autoRenew: boolean; payerWhatsApp: string }
 
 function phoneDigits(value: string): number {
     return value.replace(/\D/g, '').length;
@@ -51,6 +56,8 @@ function CheckoutContent() {
 
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [payError, setPayError] = useState('');
+    const [planPrefs, setPlanPrefs] = useState<PlanPrefs>({ plan: 'once', autoRenew: true, payerWhatsApp: '' });
+    const isPlan = planPrefs.plan === 'weekly';
 
     const [formData, setFormData] = useState({
         recipientName: '',
@@ -69,6 +76,8 @@ function CheckoutContent() {
         // Restore what was typed before a detour to log in / sign up.
         const draft = readStoredJson<Partial<typeof formData> | null>(CHECKOUT_DRAFT_KEY, null);
         if (draft) setFormData((prev) => ({ ...prev, ...draft }));
+        const savedPlan = readStoredJson<Partial<PlanPrefs> | null>(CHECKOUT_PLAN_KEY, null);
+        if (savedPlan) setPlanPrefs((prev) => ({ ...prev, ...savedPlan }));
         setHydrated(true);
     }, []);
 
@@ -76,6 +85,10 @@ function CheckoutContent() {
     useEffect(() => {
         if (hydrated) writeStoredJson(CHECKOUT_DRAFT_KEY, formData);
     }, [hydrated, formData]);
+
+    useEffect(() => {
+        if (hydrated) writeStoredJson(CHECKOUT_PLAN_KEY, planPrefs);
+    }, [hydrated, planPrefs]);
 
     const [saveContact, setSaveContact] = useState(false);
     const [contactNickname, setContactNickname] = useState('');
@@ -90,6 +103,8 @@ function CheckoutContent() {
     };
     const cartTotal = cartItems.reduce((sum, item) => sum + getItemPrice(item), 0);
     const totalKg = cartItems.reduce((sum, item) => sum + item.kg, 0);
+    /** What is charged now: one delivery, or PLAN_WEEKS deliveries upfront. */
+    const dueToday = isPlan ? cartTotal * PLAN_WEEKS : cartTotal;
 
     // ── Cart editing (from checkout) ──────────────────────
     const updateItemKg = (id: string, kg: number) => {
@@ -148,11 +163,15 @@ function CheckoutContent() {
         if (!formData.recipientAddress.trim()) errors.address = 'Delivery address is required';
         if (!formData.recipientSuburb) errors.suburb = 'Please select a suburb';
         if (cartItems.length === 0) errors.cart = 'Your cart is empty';
+        const payerDigits = phoneDigits(planPrefs.payerWhatsApp);
+        if (isPlan && planPrefs.autoRenew && planPrefs.payerWhatsApp.trim() && (payerDigits < 9 || payerDigits > 15)) {
+            errors.payerWhatsApp = 'Enter a full number with country code, e.g. +44 7700 900123';
+        }
         setFormErrors(errors);
         // On phones the button sits below the form, so bring the first problem into view.
-        const firstField = (['name', 'whatsapp', 'address', 'suburb'] as const).find((k) => errors[k]);
+        const firstField = (['payerWhatsApp', 'name', 'whatsapp', 'address', 'suburb'] as const).find((k) => errors[k]);
         if (firstField) {
-            const id = { name: 'recipientName', whatsapp: 'recipientWhatsApp', address: 'recipientAddress', suburb: 'recipientSuburb' }[firstField];
+            const id = { payerWhatsApp: 'payerWhatsApp', name: 'recipientName', whatsapp: 'recipientWhatsApp', address: 'recipientAddress', suburb: 'recipientSuburb' }[firstField];
             const el = document.getElementById(id);
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el?.focus({ preventScroll: true });
@@ -189,17 +208,22 @@ function CheckoutContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    amount: cartTotal,
+                    amount: dueToday,
                     currency: currency.toUpperCase(),
                     userId: user.id,
                     purpose: 'ORDER',
-                    description: cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ').slice(0, 240),
+                    description: `${isPlan ? `Weekly plan, ${PLAN_WEEKS} deliveries: ` : ''}${cartItems.map(i => `${i.title} (${i.kg}kg)`).join(', ')}`.slice(0, 240),
                     firstName: (user.name || 'Hexad').split(' ')[0],
                     lastName: (user.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer',
                     email: user.email || 'support@hexadmarket.com',
                     mobilePhoneNumber: formData.recipientWhatsApp.replace(/\D/g, '').slice(-10) || '0770000000',
                     metadata: {
                         cartItems: cartItems.map(i => ({ id: i.id, title: i.title, kg: i.kg })),
+                        ...(isPlan ? {
+                            plan: 'MONTHLY',
+                            autoRenew: planPrefs.autoRenew,
+                            payerWhatsApp: planPrefs.autoRenew ? planPrefs.payerWhatsApp.trim() : '',
+                        } : {}),
                         recipientName: formData.recipientName,
                         recipientWhatsApp: formData.recipientWhatsApp,
                         recipientAddress: formData.recipientAddress,
@@ -221,8 +245,9 @@ function CheckoutContent() {
                     senderId: user.id,
                     senderName: user.name,
                     cartItems,
-                    amount: cartTotal,
+                    amount: dueToday,
                     currency: currency.toUpperCase(),
+                    plan: planPrefs.plan,
                     paymentId: zbData.paymentId,
                 });
                 window.location.href = zbData.checkoutUrl;
@@ -330,6 +355,76 @@ function CheckoutContent() {
                             <button className={styles.addMoreBtn} onClick={() => router.push('/shop')}>
                                 + Add More Items
                             </button>
+                        </div>
+
+                        {/* How often */}
+                        <div className={styles.section}>
+                            <h2>📅 How often?</h2>
+                            <div className={styles.planOptions} role="radiogroup" aria-label="How often">
+                                <label className={`${styles.planOption} ${!isPlan ? styles.planOptionActive : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="plan"
+                                        checked={!isPlan}
+                                        onChange={() => setPlanPrefs({ ...planPrefs, plan: 'once' })}
+                                    />
+                                    <span className={styles.planOptionBody}>
+                                        <span className={styles.planOptionTitle}>Just this once</span>
+                                        <span className={styles.planOptionDesc}>One delivery on {nextDeliveryDay()}.</span>
+                                    </span>
+                                    <span className={styles.planOptionPrice}>{sym}{cartTotal.toFixed(2)}</span>
+                                </label>
+                                <label className={`${styles.planOption} ${isPlan ? styles.planOptionActive : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="plan"
+                                        checked={isPlan}
+                                        onChange={() => setPlanPrefs({ ...planPrefs, plan: 'weekly' })}
+                                    />
+                                    <span className={styles.planOptionBody}>
+                                        <span className={styles.planOptionTitle}>Every week, paid monthly</span>
+                                        <span className={styles.planOptionDesc}>
+                                            Pay once for {PLAN_WEEKS} weekly deliveries. The same order arrives every Wednesday.
+                                        </span>
+                                    </span>
+                                    <span className={styles.planOptionPrice}>
+                                        {sym}{(cartTotal * PLAN_WEEKS).toFixed(2)}
+                                        <small>{sym}{cartTotal.toFixed(2)} × {PLAN_WEEKS}</small>
+                                    </span>
+                                </label>
+                            </div>
+
+                            {isPlan && (
+                                <div className={styles.planRenew}>
+                                    <label className={styles.saveContactRow}>
+                                        <input
+                                            type="checkbox"
+                                            checked={planPrefs.autoRenew}
+                                            onChange={e => setPlanPrefs({ ...planPrefs, autoRenew: e.target.checked })}
+                                            className={styles.saveContactCheck}
+                                        />
+                                        <span>Send me a payment link for the next month when these {PLAN_WEEKS} deliveries run out</span>
+                                    </label>
+                                    {planPrefs.autoRenew && (
+                                        <div className={styles.formGroup} style={{ marginTop: '0.75rem' }}>
+                                            <label htmlFor="payerWhatsApp">Your WhatsApp number, for the payment link (optional)</label>
+                                            <input
+                                                id="payerWhatsApp"
+                                                type="tel"
+                                                inputMode="tel"
+                                                autoComplete="tel"
+                                                aria-invalid={!!formErrors.payerWhatsApp}
+                                                value={planPrefs.payerWhatsApp}
+                                                onChange={e => setPlanPrefs({ ...planPrefs, payerWhatsApp: e.target.value })}
+                                                placeholder="e.g. +44 7700 900123"
+                                            />
+                                            {formErrors.payerWhatsApp
+                                                ? <p className={styles.fieldError}>{formErrors.payerWhatsApp}</p>
+                                                : <p className={styles.fieldHint}>Nothing is charged automatically. You can also renew or switch this off any time under My orders.</p>}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Recipient Details */}
@@ -465,11 +560,19 @@ function CheckoutContent() {
                                 <span>Delivery</span>
                                 <span style={{ color: 'var(--success, #22c55e)' }}>Free</span>
                             </div>
+                            {isPlan && (
+                                <div className={styles.sidebarItem}>
+                                    <span>Weekly deliveries</span>
+                                    <span>× {PLAN_WEEKS}</span>
+                                </div>
+                            )}
                             <div className={styles.sidebarTotal}>
-                                <span>Total ({totalKg}kg)</span>
-                                <span>{sym}{cartTotal.toFixed(2)}</span>
+                                <span>{isPlan ? 'Pay today' : `Total (${totalKg}kg)`}</span>
+                                <span>{sym}{dueToday.toFixed(2)}</span>
                             </div>
-                            <p className={styles.deliveryNote}>Delivered {nextDeliveryDay()}</p>
+                            <p className={styles.deliveryNote}>
+                                {isPlan ? `Every Wednesday for ${PLAN_WEEKS} weeks, from ${nextDeliveryDay()}` : `Delivered ${nextDeliveryDay()}`}
+                            </p>
                             <Button fullWidth onClick={advanceToReview} style={{ marginTop: '1rem' }}>
                                 {isLoggedIn ? 'Review order →' : 'Continue →'}
                             </Button>
@@ -503,9 +606,22 @@ function CheckoutContent() {
                                     <span className={styles.reviewLabel}>Address</span>
                                     <span className={styles.reviewValue}>{formData.recipientAddress}, {formData.recipientSuburb}, Harare</span>
                                 </div>
+                                {isPlan && (
+                                    <div className={styles.reviewField}>
+                                        <span className={styles.reviewLabel}>Plan</span>
+                                        <span className={styles.reviewValue}>
+                                            {PLAN_WEEKS} weekly deliveries, paid today.{' '}
+                                            {planPrefs.autoRenew ? 'We\'ll send a link to pay for the next month.' : 'Ends after the last delivery.'}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className={styles.reviewField}>
                                     <span className={styles.reviewLabel}>Delivery</span>
-                                    <span className={styles.reviewValue} style={{ color: 'var(--primary)' }}>{nextDeliveryDay()} · free</span>
+                                    <span className={styles.reviewValue} style={{ color: 'var(--primary)' }}>
+                                        {isPlan
+                                            ? `Every Wednesday for ${PLAN_WEEKS} weeks, from ${nextDeliveryDay()} · free`
+                                            : `${nextDeliveryDay()} · free`}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -568,15 +684,21 @@ function CheckoutContent() {
                                 <span>Processing Fee</span>
                                 <span style={{ color: 'var(--success, #22c55e)' }}>Free</span>
                             </div>
+                            {isPlan && (
+                                <div className={styles.sidebarItem}>
+                                    <span>Weekly deliveries</span>
+                                    <span>{sym}{cartTotal.toFixed(2)} × {PLAN_WEEKS}</span>
+                                </div>
+                            )}
                             <div className={styles.sidebarTotal}>
-                                <span>Total ({totalKg}kg)</span>
-                                <span>{sym}{cartTotal.toFixed(2)}</span>
+                                <span>{isPlan ? 'Pay today' : `Total (${totalKg}kg)`}</span>
+                                <span>{sym}{dueToday.toFixed(2)}</span>
                             </div>
                             {payError && (
                                 <p role="alert" className={styles.payError}>{payError}</p>
                             )}
                             <Button fullWidth onClick={handlePayment} disabled={loading} style={{ marginTop: '1.5rem' }}>
-                                {loading ? 'Connecting to ZB…' : <>Confirm &amp; Pay {sym}{cartTotal.toFixed(2)} →</>}
+                                {loading ? 'Connecting to ZB…' : <>Confirm &amp; Pay {sym}{dueToday.toFixed(2)} →</>}
                             </Button>
                             <button className={styles.backBtn} onClick={() => setStep(1)}>
                                 ← Back to Delivery Details

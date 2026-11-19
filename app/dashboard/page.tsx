@@ -33,6 +33,22 @@ interface Delivery {
     status: string;
     pack: string;
     deliveryDate?: string;
+    plan?: PlanSummary | null;
+}
+
+interface PlanSummary {
+    weeks: number;
+    deliveriesLeft: number;
+    autoRenew: boolean;
+    amount: number;
+    currency: string;
+    state: 'active' | 'renewal_due' | 'ended';
+    renewPath: string;
+}
+
+function money(amount: number, currency: string) {
+    const sym = currency === 'ZAR' ? 'R' : currency === 'GBP' ? '£' : currency === 'USD' ? '$' : `${currency} `;
+    return `${sym}${amount.toFixed(2)}`;
 }
 
 export default function DashboardPage() {
@@ -53,7 +69,6 @@ export default function DashboardPage() {
             return;
         }
         const parsed = JSON.parse(storedUser);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(parsed);
 
         // Load saved recipients (scoped to this user)
@@ -87,6 +102,31 @@ export default function DashboardPage() {
             .catch(() => undefined);
         return () => { cancelled = true; };
     }, [router]);
+
+    const [planBusy, setPlanBusy] = useState('');
+    const [planError, setPlanError] = useState('');
+
+    /** Turn the renewal link for one weekly plan on or off. */
+    const setAutoRenew = async (orderId: string, autoRenew: boolean) => {
+        setPlanBusy(orderId);
+        setPlanError('');
+        try {
+            const res = await fetch('/api/my-orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: orderId, autoRenew }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            setDeliveries((list) => list.map((d) => (d.id === orderId && d.plan ? { ...d, plan: { ...d.plan, autoRenew } } : d)));
+        } catch {
+            setPlanError('We couldn\'t update your plan. Please try again.');
+        } finally {
+            setPlanBusy('');
+        }
+    };
+
+    const duePlans = deliveries.filter((d) => d.plan?.state === 'renewal_due');
 
     const handleAddRecipient = (e: React.FormEvent) => {
         e.preventDefault();
@@ -128,6 +168,16 @@ export default function DashboardPage() {
                 <Button href="/shop">New order</Button>
             </header>
 
+            {duePlans.map((d) => d.plan && (
+                <div key={d.id} className={styles.renewBanner} role="status">
+                    <div>
+                        <strong>{d.recipientName}&apos;s weekly plan needs paying for next month</strong>
+                        <span>The {d.plan.weeks} prepaid deliveries are used up after {d.deliveryDate || 'this Wednesday'}.</span>
+                    </div>
+                    <Button href={d.plan.renewPath}>Pay {money(d.plan.amount, d.plan.currency)} →</Button>
+                </div>
+            ))}
+
             {/* Stats Cards */}
             <div className={styles.stats}>
                 <div className={`${styles.card} ${styles.deliveryCard}`}>
@@ -166,6 +216,7 @@ export default function DashboardPage() {
                         </p>
                     </div>
 
+                    {planError && <p role="alert" style={{ color: 'var(--error)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{planError}</p>}
                     <div className={styles.gallery}>
                         {deliveries.length === 0 ? (
                             <div className={styles.emptyState}>
@@ -184,7 +235,45 @@ export default function DashboardPage() {
                                     <div className={styles.orderInfo}>
                                         <h4>{del.pack}</h4>
                                         <span>For {del.recipientName} · {del.location}</span>
-                                        <span>Ordered {del.date}{del.deliveryDate ? ` · delivery ${del.deliveryDate}` : ''}</span>
+                                        <span>Ordered {del.date}{del.deliveryDate ? ` · ${del.plan ? 'next delivery' : 'delivery'} ${del.deliveryDate}` : ''}</span>
+                                        {del.plan && (
+                                            <div className={styles.planBox}>
+                                                <span className={styles.planLine}>
+                                                    📅 Weekly plan ·{' '}
+                                                    {del.plan.state === 'ended'
+                                                        ? 'ended'
+                                                        : del.plan.deliveriesLeft > 0
+                                                            ? `${del.plan.deliveriesLeft} of ${del.plan.weeks} paid deliveries to come`
+                                                            : 'all paid deliveries used'}
+                                                </span>
+                                                <div className={styles.planActions}>
+                                                    {del.plan.state !== 'active' ? (
+                                                        <Button href={del.plan.renewPath} style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem' }}>
+                                                            {del.plan.state === 'ended' ? 'Restart' : 'Pay'} {money(del.plan.amount, del.plan.currency)} for {del.plan.weeks} more weeks
+                                                        </Button>
+                                                    ) : (
+                                                        <a href={del.plan.renewPath} className={styles.planLink}>Pay ahead</a>
+                                                    )}
+                                                    {del.plan.state !== 'ended' && (
+                                                        <button
+                                                            type="button"
+                                                            className={styles.planLink}
+                                                            disabled={planBusy === del.id}
+                                                            onClick={() => setAutoRenew(del.id, !del.plan!.autoRenew)}
+                                                        >
+                                                            {del.plan.autoRenew ? 'Stop after these deliveries' : 'Keep it going (send renewal link)'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {del.plan.state === 'active' && (
+                                                    <span className={styles.planHint}>
+                                                        {del.plan.autoRenew
+                                                            ? 'We\'ll send you a link to pay for the next month when these run out.'
+                                                            : 'This plan ends after the last paid delivery.'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <span className={styles.orderStatus}>{del.status}</span>
                                 </div>
